@@ -91,6 +91,21 @@ def mark_failed(report_id: str, error: str) -> None:
         )
 
 
+def list_recent_reports(limit: int = 20) -> list[dict]:
+    with connect() as c:
+        rows = c.execute(
+            """
+            SELECT id, created_at, status, review_passed, node_status,
+                   substr(report_markdown, 1, 160) AS snippet
+            FROM reports
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
 def get_report(report_id: str) -> dict | None:
     with connect() as c:
         row = c.execute(

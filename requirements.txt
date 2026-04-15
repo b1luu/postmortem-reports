@@ -7,3 +7,5 @@ langchain-core>=0.3
 langchain-ollama>=0.2
 langsmith>=0.1.130
 python-dotenv>=1.0
+pytest>=8.0
+httpx>=0.27

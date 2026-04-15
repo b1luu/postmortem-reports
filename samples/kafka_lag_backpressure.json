@@ -1,0 +1,13 @@
+{
+  "id": "kafka_lag_backpressure",
+  "title": "Kafka consumer lag causes order backpressure",
+  "description": "Slow consumer on the orders topic builds lag and stalls downstream fulfillment.",
+  "raw_input": "2026-01-18T22:00:00Z [orders-consumer] INFO processing normal\n2026-01-18T22:15:22Z [orders-consumer] WARN consumer lag 50000 and growing\n2026-01-18T22:20:45Z [fulfillment-svc] ERROR order queue depth 120000\n2026-01-18T22:22:03Z [fulfillment-svc] ERROR processing timeout\n2026-01-18T22:25:00Z [pagerduty] alert fired fulfillment sev3 backlog\n2026-01-18T22:40:11Z [orders-consumer] INFO scaled partitions 8 to 24\n2026-01-18T22:55:20Z [fulfillment-svc] INFO queue drained\n2026-01-18T22:56:00Z [fulfillment-svc] resolved",
+  "expectations": {
+    "min_events": 7,
+    "min_services": 2,
+    "severity": "sev3",
+    "expect_root_cause_substring": "lag",
+    "expect_resolution": true
+  }
+}

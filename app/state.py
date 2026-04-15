@@ -30,6 +30,8 @@ class PostmortemState(TypedDict, total=False):
     contributing_factors: list[str]
     ordered_timeline: list[TimelineEvent]
     inflection_points: dict[str, str]
+    durations: dict[str, Any]
+    root_cause_evidence: list[dict[str, Any]]
     report_markdown: str
     review_issues: list[str]
     review_passed: bool

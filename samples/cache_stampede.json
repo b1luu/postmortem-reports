@@ -1,0 +1,13 @@
+{
+  "id": "cache_stampede",
+  "title": "Cache stampede after Redis failover",
+  "description": "Redis primary failover triggers a thundering-herd rebuild that overloads the catalog DB.",
+  "raw_input": "2026-03-22T14:10:00Z [redis-primary] WARN replication lag 8s\n2026-03-22T14:10:42Z [redis-primary] ERROR unresponsive, failing over\n2026-03-22T14:10:55Z [catalog-svc] ERROR cache miss rate 100%\n2026-03-22T14:11:20Z [catalog-db] ERROR connection count 900 of 1000, latency p99 12s\n2026-03-22T14:11:44Z [catalog-svc] ERROR timeout fetching product list\n2026-03-22T14:13:02Z [pagerduty] alert fired sev2 catalog error rate\n2026-03-22T14:15:30Z [catalog-svc] INFO jittered cache refill deployed\n2026-03-22T14:18:10Z [catalog-db] normal connection count\n2026-03-22T14:18:45Z [catalog-svc] recovered",
+  "expectations": {
+    "min_events": 8,
+    "min_services": 3,
+    "severity": "sev2",
+    "expect_root_cause_substring": "redis",
+    "expect_resolution": true
+  }
+}

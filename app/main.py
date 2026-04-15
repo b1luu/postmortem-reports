@@ -12,10 +12,13 @@ from app.db import (
     create_pending_report,
     get_report,
     init_db,
+    list_recent_reports,
     mark_failed,
     save_report,
 )
 from app.graph import graph
+
+SAMPLES_DIR = Path(__file__).resolve().parent.parent / "samples"
 
 app = FastAPI(title="Incident Postmortem Generator")
 logging.basicConfig(
@@ -67,6 +70,49 @@ def analyze(req: AnalyzeRequest, background: BackgroundTasks) -> dict:
     return {"id": report_id, "status": "pending"}
 
 
+@app.get("/api/samples")
+def samples() -> list[dict]:
+    out: list[dict] = []
+    if not SAMPLES_DIR.exists():
+        return out
+    for path in sorted(SAMPLES_DIR.glob("*.json")):
+        try:
+            data = json.loads(path.read_text())
+        except Exception:
+            continue
+        out.append(
+            {
+                "id": data.get("id", path.stem),
+                "title": data.get("title", path.stem),
+                "description": data.get("description", ""),
+                "raw_input": data.get("raw_input", ""),
+            }
+        )
+    return out
+
+
+@app.get("/api/runs")
+def runs(limit: int = 20) -> list[dict]:
+    rows = list_recent_reports(limit=limit)
+    out: list[dict] = []
+    for row in rows:
+        try:
+            node_status = json.loads(row.get("node_status") or "{}")
+        except (TypeError, ValueError):
+            node_status = {}
+        out.append(
+            {
+                "id": row["id"],
+                "created_at": row["created_at"],
+                "status": row.get("status") or "pending",
+                "review_passed": bool(row.get("review_passed")),
+                "snippet": (row.get("snippet") or "").strip(),
+                "node_status": node_status,
+            }
+        )
+    return out
+
+
 @app.get("/report/{report_id}")
 def report(report_id: str) -> dict:
     row = get_report(report_id)
@@ -79,6 +125,11 @@ def report(report_id: str) -> dict:
     except (TypeError, ValueError):
         node_status = {}
 
+    try:
+        state = json.loads(row.get("state_json") or "{}")
+    except (TypeError, ValueError):
+        state = {}
+
     return {
         "id": row["id"],
         "created_at": row["created_at"],
@@ -86,5 +137,9 @@ def report(report_id: str) -> dict:
         "review_passed": bool(row.get("review_passed")),
         "report_markdown": row.get("report_markdown") or "",
         "node_status": node_status,
+        "durations": state.get("durations") or {},
+        "inflection_points": state.get("inflection_points") or {},
+        "incident": state.get("incident") or {},
+        "root_cause_evidence": state.get("root_cause_evidence") or [],
         "error": row.get("error"),
     }

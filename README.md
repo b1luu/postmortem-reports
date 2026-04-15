@@ -7,10 +7,13 @@ Paste incident text or logs into a minimal local UI, run analysis, and retrieve 
 ## What It Does
 
 - Accepts raw incident text through a local web UI or API
-- Runs a multi-step analysis pipeline
-- Produces a structured markdown postmortem
-- Stores generated reports in SQLite
-- Exposes job status and per-node execution metadata
+- Runs a multi-step LangGraph analysis pipeline
+- Computes MTTD, MTTR, and total incident duration from the reconstructed timeline
+- Links the root cause to supporting evidence events with a confidence level
+- Produces a structured markdown postmortem with per-section quality gating
+- Stores generated reports in SQLite and exposes recent runs via API + UI sidebar
+- Exposes per-node source (`heuristic` / `llm` / `fallback`), duration, and error
+- Ships a curated sample-incident library that drives both the UI picker and the eval suite
 
 ## Current Product Shape
 
@@ -120,8 +123,32 @@ Response fields:
 - `status`
 - `report_markdown`
 - `review_passed`
-- `node_status`
+- `node_status` — `{ parse|root_cause|factors|timeline|write|guard: { source, duration_s, error } }`
+- `durations` — `{ mttd_human, mttr_human, total_human, ... }`
+- `inflection_points` — `{ started, detected, resolved }`
+- `incident` — parsed events, services, severity, error signals
+- `root_cause_evidence` — supporting events with timestamps and sources
 - `error`
+
+### `GET /api/samples`
+
+Returns the curated sample incidents used by the UI picker and eval suite.
+
+### `GET /api/runs?limit=20`
+
+Returns recent runs for the UI sidebar with status, review state, and snippet.
+
+## Tests & Evaluation
+
+```bash
+.venv/bin/python -m pytest -q            # unit + API tests
+.venv/bin/python -m pytest tests/test_eval.py -s   # end-to-end eval with per-sample timings
+```
+
+The eval harness loads every JSON file in `samples/`, runs it through the full
+LangGraph pipeline, and asserts per-sample expectations (severity, min events,
+root-cause substring, resolution detected) plus global quality bars (latency
+budget, all required sections present, minimum action items, review gate passing).
 
 ## Example Input
 

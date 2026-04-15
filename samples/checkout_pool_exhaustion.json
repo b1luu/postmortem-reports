@@ -1,0 +1,13 @@
+{
+  "id": "checkout_pool_exhaustion",
+  "title": "Checkout DB pool exhaustion after deploy",
+  "description": "Classic post-deploy connection pool exhaustion cascading into the API gateway.",
+  "raw_input": "2026-04-14T09:58:12Z [checkout-svc] INFO deploy v412 started\n2026-04-14T10:00:31Z [checkout-svc] INFO deploy v412 healthy\n2026-04-14T10:01:04Z [checkout-svc] ERROR db pool exhausted, waiting connections=128\n2026-04-14T10:01:20Z [api-gateway] 503 upstream checkout-svc unavailable\n2026-04-14T10:02:03Z [checkout-svc] ERROR latency p99 > 8s\n2026-04-14T10:03:11Z [pagerduty] alert fired for checkout error rate sev2\n2026-04-14T10:08:55Z [checkout-svc] INFO rolling back to v411\n2026-04-14T10:12:45Z [checkout-svc] rollback complete\n2026-04-14T10:13:10Z [api-gateway] errors back to normal, recovered",
+  "expectations": {
+    "min_events": 8,
+    "min_services": 2,
+    "severity": "sev2",
+    "expect_root_cause_substring": "pool",
+    "expect_resolution": true
+  }
+}

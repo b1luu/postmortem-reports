@@ -1,4 +1,5 @@
 import json
+import re
 import time
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -17,16 +18,19 @@ PROMPT = ChatPromptTemplate.from_messages(
     [("system", SYSTEM), ("human", "Incident:\n{incident}")]
 )
 
-_ROOT_CAUSE_KEYWORDS = (
-    "error",
-    "fail",
-    "exhaust",
-    "timeout",
-    "unavailable",
-    "crash",
-    "503",
-    "500",
+_HTTP_ERROR_RE = re.compile(r"\b(?:5\d\d|50[03])\b", re.IGNORECASE)
+_PRECURSOR_RE = re.compile(
+    r"\b(?:consumer lag|replication lag|certificate has expired|cert(?:ificate)? expired)\b",
+    re.IGNORECASE,
 )
+
+
+def _matches_root_cause_signal(text: str) -> bool:
+    if _PRECURSOR_RE.search(text) is not None:
+        return True
+    if any(k in text for k in ("error", "fail", "exhaust", "timeout", "unavailable", "crash")):
+        return True
+    return _HTTP_ERROR_RE.search(text) is not None
 
 
 def root_cause_node(state: PostmortemState) -> PostmortemState:
@@ -36,30 +40,46 @@ def root_cause_node(state: PostmortemState) -> PostmortemState:
         events = incident.get("events", [])
         error_signals = incident.get("error_signals", [])
 
-        candidate = ""
+        primary_event = None
+        evidence: list[dict] = []
         for ev in events:
             text = str(ev.get("event", "")).lower()
-            if any(k in text for k in _ROOT_CAUSE_KEYWORDS):
-                ts = ev.get("timestamp", "unknown time")
-                src = ev.get("source", "")
-                candidate = f"{ev.get('event', '').strip()} (at {ts}"
-                candidate += f", source={src})" if src else ")"
+            if _matches_root_cause_signal(text):
+                if primary_event is None:
+                    primary_event = ev
+                evidence.append(
+                    {
+                        "timestamp": ev.get("timestamp", ""),
+                        "source": ev.get("source", ""),
+                        "event": ev.get("event", ""),
+                    }
+                )
+            if len(evidence) >= 4:
                 break
 
-        if not candidate and error_signals:
+        if primary_event is not None:
+            ts = primary_event.get("timestamp", "unknown time")
+            src = primary_event.get("source", "")
+            candidate = f"{primary_event.get('event', '').strip()} (at {ts}"
+            candidate += f", source={src})" if src else ")"
+        elif error_signals:
             candidate = f"Error signal: {error_signals[0]}"
-        if not candidate and events:
+        elif events:
             candidate = str(events[0].get("event", "")).strip()
-        if not candidate:
+        else:
             candidate = "Insufficient incident detail to determine a single root cause."
+
+        confidence = "medium" if primary_event and len(evidence) >= 2 else "low"
 
         return {
             "root_cause": (
                 f"Most likely root cause: {candidate}\n\n"
                 "_Reasoning:_ Heuristically derived from the earliest error signal "
-                "in the timeline without full model analysis."
+                "in the timeline, corroborated by "
+                f"{len(evidence)} supporting event(s)."
             ),
-            "root_cause_confidence": "low",
+            "root_cause_confidence": confidence,
+            "root_cause_evidence": evidence,
         }
 
     start = time.perf_counter()

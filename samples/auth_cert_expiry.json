@@ -1,0 +1,13 @@
+{
+  "id": "auth_cert_expiry",
+  "title": "Auth service TLS certificate expiry",
+  "description": "Expired TLS cert on the auth service rejects new sessions globally.",
+  "raw_input": "2026-02-03T03:00:00Z [auth-svc] INFO nightly health check ok\n2026-02-03T06:00:01Z [auth-svc] ERROR tls: certificate has expired or is not yet valid\n2026-02-03T06:00:14Z [web-frontend] ERROR 502 upstream auth-svc handshake failed\n2026-02-03T06:00:47Z [mobile-api] ERROR session validation unavailable\n2026-02-03T06:02:10Z [pagerduty] alert fired login success rate sev1\n2026-02-03T06:05:30Z [auth-svc] INFO emergency cert rotated\n2026-02-03T06:06:12Z [auth-svc] INFO recovered, handshakes ok\n2026-02-03T06:07:00Z [web-frontend] normal login rate resumed",
+  "expectations": {
+    "min_events": 7,
+    "min_services": 3,
+    "severity": "sev1",
+    "expect_root_cause_substring": "tls",
+    "expect_resolution": true
+  }
+}

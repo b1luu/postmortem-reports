@@ -11,14 +11,15 @@
         --text: #151515;
         --muted: #6d6a63;
         --line: #d9d4ca;
+        --accent: #8a2a1c;
+        --ok: #2d6a31;
+        --warn: #8a6a1c;
+        --err: #8a2a1c;
       }
 
-      * {
-        box-sizing: border-box;
-      }
+      * { box-sizing: border-box; }
 
-      html,
-      body {
+      html, body {
         margin: 0;
         min-height: 100%;
         background: var(--bg);
@@ -27,167 +28,272 @@
           Palatino, Georgia, serif;
       }
 
-      body {
-        padding: 48px 18px 80px;
-      }
+      body { padding: 40px 18px 80px; }
 
       .shell {
-        width: min(760px, 100%);
+        width: min(1100px, 100%);
         margin: 0 auto;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 260px;
+        gap: 28px;
       }
 
-      h1 {
-        margin: 0 0 8px;
-        font-size: clamp(2rem, 5vw, 3.5rem);
+      @media (max-width: 900px) {
+        .shell { grid-template-columns: minmax(0, 1fr); }
+        aside { order: 2; }
+      }
+
+      header h1 {
+        margin: 0 0 6px;
+        font-size: clamp(1.9rem, 4vw, 3rem);
         font-weight: 400;
         letter-spacing: -0.04em;
       }
 
       .subtle {
-        margin: 0 0 32px;
+        margin: 0 0 20px;
         color: var(--muted);
-        font-size: 0.98rem;
+        font-size: 0.95rem;
       }
 
-      form,
-      .report {
+      main { display: grid; gap: 20px; min-width: 0; }
+
+      form, .report, aside .card {
         background: var(--panel);
         border: 1px solid var(--line);
       }
 
-      textarea,
-      button,
-      input {
+      .form-top {
+        display: flex;
+        gap: 12px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--line);
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .form-top label {
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      select, button, textarea, input {
         font: inherit;
+        color: inherit;
+      }
+
+      select {
+        background: transparent;
+        border: 1px solid var(--line);
+        padding: 6px 8px;
       }
 
       textarea {
         width: 100%;
-        min-height: 240px;
-        padding: 20px;
+        min-height: 220px;
+        padding: 18px;
         border: 0;
         resize: vertical;
         background: transparent;
-        color: inherit;
         outline: none;
-        line-height: 1.6;
+        line-height: 1.55;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 0.88rem;
       }
 
       .bar {
         display: flex;
-        gap: 12px;
+        gap: 10px;
         align-items: center;
         justify-content: space-between;
-        padding: 14px 18px;
+        padding: 12px 16px;
         border-top: 1px solid var(--line);
+        flex-wrap: wrap;
       }
 
       button {
         border: 1px solid var(--text);
         background: var(--text);
         color: var(--panel);
-        padding: 10px 14px;
+        padding: 8px 14px;
         cursor: pointer;
       }
 
-      button[disabled] {
-        opacity: 0.45;
-        cursor: wait;
+      button.ghost {
+        background: transparent;
+        color: var(--text);
       }
 
-      .meta {
-        color: var(--muted);
-        font-size: 0.92rem;
-      }
+      button[disabled] { opacity: 0.45; cursor: wait; }
 
-      .stack {
-        display: grid;
-        gap: 20px;
-      }
+      .meta { color: var(--muted); font-size: 0.88rem; }
 
-      .report {
-        padding: 20px;
-      }
+      .report { padding: 22px 26px; min-width: 0; }
 
       .statusline {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px 16px;
-        margin: 0 0 16px;
+        gap: 10px 18px;
+        margin: 0 0 14px;
         color: var(--muted);
-        font-size: 0.92rem;
+        font-size: 0.88rem;
+        align-items: center;
       }
+
+      .pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+      .pill.ok { color: var(--ok); border-color: var(--ok); }
+      .pill.warn { color: var(--warn); border-color: var(--warn); }
+      .pill.err { color: var(--err); border-color: var(--err); }
 
       .chips {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
-        margin: 0 0 16px;
+        gap: 6px;
+        margin: 0 0 18px;
       }
 
       .chip {
         border: 1px solid var(--line);
-        padding: 6px 10px;
+        padding: 4px 9px;
+        font-size: 0.76rem;
+        color: var(--muted);
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        background: #fff;
+      }
+      .chip.llm { border-color: var(--accent); color: var(--accent); }
+      .chip.fallback { border-color: var(--warn); color: var(--warn); }
+      .chip b { color: var(--text); font-weight: 600; }
+
+      .metrics {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        margin: 0 0 16px;
+        padding: 12px 14px;
+        background: #fff;
+        border: 1px solid var(--line);
+      }
+      .metrics div { font-size: 0.82rem; color: var(--muted); }
+      .metrics strong {
+        display: block;
+        font-size: 1.1rem;
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .md { line-height: 1.62; min-width: 0; overflow-wrap: anywhere; }
+      .md h1 { font-size: 1.8rem; margin: 0 0 12px; font-weight: 500; }
+      .md h2 {
+        font-size: 1.2rem;
+        margin: 22px 0 8px;
+        font-weight: 600;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 4px;
+      }
+      .md ul { padding-left: 22px; margin: 6px 0 10px; }
+      .md li { margin: 3px 0; }
+      .md code {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        background: #efece4;
+        padding: 0 4px;
+        border-radius: 2px;
+        font-size: 0.86em;
+      }
+      .md strong { font-weight: 600; }
+      .md em { color: var(--muted); }
+
+      .empty { color: var(--muted); padding: 10px 0; }
+
+      aside { display: grid; gap: 16px; align-content: start; }
+      aside .card { padding: 14px 16px; }
+      aside h3 {
+        margin: 0 0 10px;
         font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
         color: var(--muted);
+        font-weight: 600;
       }
-
-      pre {
-        margin: 0;
-        white-space: pre-wrap;
-        word-break: break-word;
-        line-height: 1.65;
-        font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua",
-          Palatino, Georgia, serif;
-        font-size: 1rem;
+      .run {
+        padding: 8px 0;
+        border-top: 1px solid var(--line);
+        cursor: pointer;
+        font-size: 0.82rem;
       }
-
-      .empty {
+      .run:first-of-type { border-top: 0; }
+      .run:hover { color: var(--accent); }
+      .run .ts { color: var(--muted); font-size: 0.74rem; }
+      .run .snip {
         color: var(--muted);
-        padding: 20px 0 4px;
-      }
-
-      @media (max-width: 640px) {
-        body {
-          padding-top: 32px;
-        }
-
-        .bar {
-          flex-direction: column;
-          align-items: flex-start;
-        }
+        font-size: 0.76rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
     </style>
   </head>
   <body>
-    <main class="shell stack">
-      <header>
-        <h1>Postmortem</h1>
-        <p class="subtle">Paste incident text. Get a local report.</p>
-      </header>
+    <div class="shell">
+      <main>
+        <header>
+          <h1>Postmortem</h1>
+          <p class="subtle">Local-first incident analysis. Paste logs or pick a sample.</p>
+        </header>
 
-      <form id="analyze-form">
-        <textarea
-          id="incident-input"
-          name="raw_input"
-          spellcheck="false"
-          placeholder="2026-04-14T09:58:12Z [checkout-svc] INFO deploy v412 started; 2026-04-14T10:01:04Z [checkout-svc] ERROR db pool exhausted; ..."
-        ></textarea>
-        <div class="bar">
-          <div class="meta" id="request-state">Idle.</div>
-          <button id="submit-button" type="submit">Analyze</button>
-        </div>
-      </form>
+        <form id="analyze-form">
+          <div class="form-top">
+            <label for="sample-picker">Sample:</label>
+            <select id="sample-picker">
+              <option value="">— pick one —</option>
+            </select>
+            <button type="button" class="ghost" id="clear-btn">Clear</button>
+          </div>
+          <textarea
+            id="incident-input"
+            spellcheck="false"
+            placeholder="2026-04-14T09:58:12Z [checkout-svc] INFO deploy v412 started
+2026-04-14T10:01:04Z [checkout-svc] ERROR db pool exhausted
+..."
+          ></textarea>
+          <div class="bar">
+            <div class="meta" id="request-state">Idle.</div>
+            <button id="submit-button" type="submit">Analyze</button>
+          </div>
+        </form>
 
-      <section class="report" aria-live="polite">
-        <div class="statusline">
-          <span id="report-status">No report yet.</span>
-          <span id="report-id"></span>
+        <section class="report" aria-live="polite">
+          <div class="statusline">
+            <span id="report-status">No report yet.</span>
+            <span id="review-pill" class="pill" hidden></span>
+            <span id="report-id" class="meta"></span>
+            <span style="flex:1"></span>
+            <button id="copy-btn" class="ghost" type="button" hidden>Copy</button>
+            <button id="download-btn" class="ghost" type="button" hidden>Download .md</button>
+          </div>
+          <div class="chips" id="node-status"></div>
+          <div class="metrics" id="metrics" hidden></div>
+          <div class="md" id="report-output">
+            <p class="empty">The generated report will appear here.</p>
+          </div>
+        </section>
+      </main>
+
+      <aside>
+        <div class="card">
+          <h3>Recent runs</h3>
+          <div id="recent-runs"><div class="empty">None yet.</div></div>
         </div>
-        <div class="chips" id="node-status"></div>
-        <pre id="report-output" class="empty">The generated report will appear here.</pre>
-      </section>
-    </main>
+      </aside>
+    </div>
 
     <script>
       const form = document.getElementById("analyze-form");
@@ -195,71 +301,226 @@
       const submitButton = document.getElementById("submit-button");
       const requestState = document.getElementById("request-state");
       const reportStatus = document.getElementById("report-status");
+      const reviewPill = document.getElementById("review-pill");
       const reportId = document.getElementById("report-id");
       const reportOutput = document.getElementById("report-output");
       const nodeStatus = document.getElementById("node-status");
+      const metricsEl = document.getElementById("metrics");
+      const copyBtn = document.getElementById("copy-btn");
+      const downloadBtn = document.getElementById("download-btn");
+      const samplePicker = document.getElementById("sample-picker");
+      const clearBtn = document.getElementById("clear-btn");
+      const recentRuns = document.getElementById("recent-runs");
 
       let currentPoll = null;
+      let currentMarkdown = "";
+      let samplesCache = [];
 
       function setBusy(isBusy, message) {
         submitButton.disabled = isBusy;
         requestState.textContent = message;
       }
 
+      // Minimal local markdown renderer — no external deps, stays local-first.
+      function escapeHtml(s) {
+        return s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+      }
+      function inline(s) {
+        s = escapeHtml(s);
+        s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+        s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        s = s.replace(/(^|[\s(])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+        return s;
+      }
+      function renderMarkdown(md) {
+        const lines = md.split("\n");
+        const out = [];
+        let inList = false;
+        const flushList = () => {
+          if (inList) {
+            out.push("</ul>");
+            inList = false;
+          }
+        };
+        for (const raw of lines) {
+          const line = raw.replace(/\s+$/, "");
+          if (/^# /.test(line)) {
+            flushList();
+            out.push(`<h1>${inline(line.slice(2))}</h1>`);
+          } else if (/^## /.test(line)) {
+            flushList();
+            out.push(`<h2>${inline(line.slice(3))}</h2>`);
+          } else if (/^[-*] /.test(line)) {
+            if (!inList) {
+              out.push("<ul>");
+              inList = true;
+            }
+            out.push(`<li>${inline(line.slice(2))}</li>`);
+          } else if (line.trim() === "") {
+            flushList();
+          } else {
+            flushList();
+            out.push(`<p>${inline(line)}</p>`);
+          }
+        }
+        flushList();
+        return out.join("\n");
+      }
+
+      function fmtDuration(s) {
+        if (s === null || s === undefined) return "—";
+        if (s < 60) return `${Math.round(s)}s`;
+        if (s < 3600) return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
+        return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+      }
+
       function renderNodeStatus(statusMap) {
         nodeStatus.innerHTML = "";
         for (const [name, details] of Object.entries(statusMap || {})) {
           const chip = document.createElement("div");
-          chip.className = "chip";
-          chip.textContent = `${name}: ${details.source}`;
+          const src = details.source || "?";
+          chip.className = `chip ${src}`;
+          const dur = details.duration_s != null ? `${details.duration_s.toFixed(2)}s` : "";
+          chip.innerHTML = `<b>${name}</b> ${src}${dur ? " · " + dur : ""}`;
+          if (details.error) chip.title = details.error;
           nodeStatus.appendChild(chip);
         }
       }
 
+      function renderMetrics(data) {
+        const d = data.durations || {};
+        const inf = data.inflection_points || {};
+        const incident = data.incident || {};
+        const items = [];
+        if (incident.severity) items.push(["Severity", incident.severity]);
+        if (d.total_human) items.push(["Duration", d.total_human]);
+        if (d.mttd_human) items.push(["MTTD", d.mttd_human]);
+        if (d.mttr_human) items.push(["MTTR", d.mttr_human]);
+        if (incident.services && incident.services.length)
+          items.push(["Services", incident.services.length]);
+        if (!items.length) {
+          metricsEl.hidden = true;
+          return;
+        }
+        metricsEl.hidden = false;
+        metricsEl.innerHTML = items
+          .map(([k, v]) => `<div>${k}<strong>${v}</strong></div>`)
+          .join("");
+      }
+
       function renderReport(data) {
         reportStatus.textContent = `Status: ${data.status}`;
-        reportId.textContent = data.id ? `ID: ${data.id}` : "";
+        reportId.textContent = data.id ? `ID: ${data.id.slice(0, 8)}` : "";
         renderNodeStatus(data.node_status);
 
         if (data.status === "ready") {
-          reportOutput.className = "";
-          reportOutput.textContent = data.report_markdown || "No report body.";
+          currentMarkdown = data.report_markdown || "";
+          reportOutput.innerHTML = renderMarkdown(currentMarkdown) ||
+            '<p class="empty">No report body.</p>';
+          reviewPill.hidden = false;
+          if (data.review_passed) {
+            reviewPill.textContent = "review passed";
+            reviewPill.className = "pill ok";
+          } else {
+            reviewPill.textContent = "review flagged";
+            reviewPill.className = "pill warn";
+          }
+          renderMetrics(data);
+          copyBtn.hidden = false;
+          downloadBtn.hidden = false;
           setBusy(false, "Done.");
+          loadRuns();
           return true;
         }
 
         if (data.status === "failed") {
-          reportOutput.className = "";
-          reportOutput.textContent = data.error || "Analysis failed.";
+          reviewPill.hidden = false;
+          reviewPill.textContent = "failed";
+          reviewPill.className = "pill err";
+          reportOutput.innerHTML = `<p class="empty">${escapeHtml(data.error || "Analysis failed.")}</p>`;
           setBusy(false, "Failed.");
+          loadRuns();
           return true;
         }
 
-        reportOutput.className = "empty";
-        reportOutput.textContent = "Running analysis...";
+        reportOutput.innerHTML = '<p class="empty">Running analysis…</p>';
         return false;
       }
 
       async function pollReport(id) {
-        if (currentPoll) {
-          clearTimeout(currentPoll);
-          currentPoll = null;
-        }
-
+        if (currentPoll) clearTimeout(currentPoll);
         try {
           const response = await fetch(`/report/${id}`);
           const data = await response.json();
           const done = renderReport(data);
-          if (!done) {
-            currentPoll = setTimeout(() => pollReport(id), 900);
-          }
+          if (!done) currentPoll = setTimeout(() => pollReport(id), 900);
         } catch (error) {
           setBusy(false, "Request failed.");
           reportStatus.textContent = "Status: error";
-          reportOutput.className = "";
-          reportOutput.textContent = String(error);
+          reportOutput.innerHTML = `<p class="empty">${escapeHtml(String(error))}</p>`;
         }
       }
+
+      async function loadSamples() {
+        try {
+          const r = await fetch("/api/samples");
+          samplesCache = await r.json();
+          for (const s of samplesCache) {
+            const opt = document.createElement("option");
+            opt.value = s.id;
+            opt.textContent = s.title;
+            samplePicker.appendChild(opt);
+          }
+        } catch {}
+      }
+
+      async function loadRuns() {
+        try {
+          const r = await fetch("/api/runs?limit=10");
+          const rows = await r.json();
+          if (!rows.length) {
+            recentRuns.innerHTML = '<div class="empty">None yet.</div>';
+            return;
+          }
+          recentRuns.innerHTML = "";
+          for (const row of rows) {
+            const el = document.createElement("div");
+            el.className = "run";
+            const status = row.status + (row.review_passed ? " ✓" : "");
+            el.innerHTML = `
+              <div><b>${row.id.slice(0, 8)}</b> · ${status}</div>
+              <div class="ts">${row.created_at}</div>
+              <div class="snip">${escapeHtml(row.snippet || "")}</div>`;
+            el.addEventListener("click", () => pollReport(row.id));
+            recentRuns.appendChild(el);
+          }
+        } catch {}
+      }
+
+      samplePicker.addEventListener("change", () => {
+        const picked = samplesCache.find((s) => s.id === samplePicker.value);
+        if (picked) input.value = picked.raw_input;
+      });
+
+      clearBtn.addEventListener("click", () => {
+        input.value = "";
+        samplePicker.value = "";
+      });
+
+      copyBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(currentMarkdown);
+        copyBtn.textContent = "Copied";
+        setTimeout(() => (copyBtn.textContent = "Copy"), 1200);
+      });
+
+      downloadBtn.addEventListener("click", () => {
+        const blob = new Blob([currentMarkdown], { type: "text/markdown" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "postmortem.md";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -268,14 +529,15 @@
           requestState.textContent = "Paste incident text first.";
           return;
         }
-
-        setBusy(true, "Submitting...");
+        setBusy(true, "Submitting…");
         reportStatus.textContent = "Status: pending";
         reportId.textContent = "";
-        reportOutput.className = "empty";
-        reportOutput.textContent = "Queued...";
+        reviewPill.hidden = true;
+        metricsEl.hidden = true;
+        copyBtn.hidden = true;
+        downloadBtn.hidden = true;
+        reportOutput.innerHTML = '<p class="empty">Queued…</p>';
         nodeStatus.innerHTML = "";
-
         try {
           const response = await fetch("/analyze", {
             method: "POST",
@@ -283,16 +545,18 @@
             body: JSON.stringify({ raw_input: rawInput }),
           });
           const data = await response.json();
-          reportId.textContent = `ID: ${data.id}`;
-          setBusy(true, "Polling...");
+          reportId.textContent = `ID: ${data.id.slice(0, 8)}`;
+          setBusy(true, "Polling…");
           pollReport(data.id);
         } catch (error) {
           setBusy(false, "Request failed.");
           reportStatus.textContent = "Status: error";
-          reportOutput.className = "";
-          reportOutput.textContent = String(error);
+          reportOutput.innerHTML = `<p class="empty">${escapeHtml(String(error))}</p>`;
         }
       });
+
+      loadSamples();
+      loadRuns();
     </script>
   </body>
 </html>

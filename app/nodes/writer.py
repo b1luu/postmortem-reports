@@ -61,28 +61,45 @@ def _fallback_report(state: PostmortemState) -> str:
     factors = state.get("contributing_factors", [])
     root_cause = state.get("root_cause", "Unknown")
     inflection = state.get("inflection_points", {})
+    durations = state.get("durations", {}) or {}
+    evidence = state.get("root_cause_evidence", []) or []
+    confidence = state.get("root_cause_confidence", "unknown")
 
-    timeline_lines = [
-        f"- {ev.get('timestamp', 'unknown')}"
-        + (f" [{ev.get('source')}]" if ev.get("source") else "")
-        + f": {ev.get('event', 'unknown event')}"
-        for ev in events
-    ]
-    if inflection.get("started"):
-        timeline_lines.append(f"- **Started:** {inflection['started']}")
-    if inflection.get("detected"):
-        timeline_lines.append(f"- **Detected:** {inflection['detected']}")
-    if inflection.get("resolved"):
-        timeline_lines.append(f"- **Resolved:** {inflection['resolved']}")
+    timeline_lines = []
+    for ev in events:
+        marker = ""
+        ts = ev.get("timestamp", "")
+        if ts and ts == inflection.get("started"):
+            marker = " **[started]**"
+        elif ts and ts == inflection.get("detected"):
+            marker = " **[detected]**"
+        elif ts and ts == inflection.get("resolved"):
+            marker = " **[resolved]**"
+        timeline_lines.append(
+            f"- `{ts or 'unknown'}`"
+            + (f" *{ev.get('source')}*" if ev.get("source") else "")
+            + f" — {ev.get('event', 'unknown event')}{marker}"
+        )
 
     service_text = ", ".join(services) if services else "unknown"
-    summary = (
-        f"A {severity} incident affected {service_text}. "
-        f"{len(events)} timeline events were observed"
-    )
+    mttd_h = durations.get("mttd_human")
+    mttr_h = durations.get("mttr_human")
+    total_h = durations.get("total_human")
+
+    summary_parts = [
+        f"A **{severity}** incident affected {service_text}.",
+        f"{len(events)} timeline events were observed",
+    ]
     if inflection.get("started") and inflection.get("resolved"):
-        summary += f" between {inflection['started']} and {inflection['resolved']}"
-    summary += ". This report was produced from the deterministic heuristic path for faster turnaround."
+        summary_parts[-1] += f" between {inflection['started']} and {inflection['resolved']}"
+    summary_parts[-1] += "."
+    if total_h:
+        summary_parts.append(f"Total incident duration: **{total_h}**.")
+    if mttd_h:
+        summary_parts.append(f"Time to detect (MTTD): **{mttd_h}**.")
+    if mttr_h:
+        summary_parts.append(f"Time to resolve after detection (MTTR): **{mttr_h}**.")
+    summary = " ".join(summary_parts)
 
     factor_lines = (
         "\n".join(f"- {f}" for f in factors) if factors else "- None identified"
@@ -110,14 +127,48 @@ def _fallback_report(state: PostmortemState) -> str:
         actions.append(
             "Audit cross-service dependencies to reduce blast radius of single-service failures."
         )
-    if not actions:
-        actions = [
-            "Add structured incident fields (severity, owners, impact) to improve future analysis quality.",
-            "Capture explicit detection and resolution markers in the source data.",
-            "Add service ownership and alert metadata to future incident inputs.",
-        ]
+    generic = [
+        "Document the detection signal and update the relevant runbook for on-call engineers.",
+        "Add SLO-backed alerts on the leading indicators observed in this incident's timeline.",
+        "Capture explicit detection and resolution markers in the source data for future analyses.",
+        "Add service ownership and alert metadata to incident intake to shorten triage.",
+    ]
+    seen = set(actions)
+    for g in generic:
+        if len(actions) >= 3:
+            break
+        if g not in seen:
+            actions.append(g)
+            seen.add(g)
 
     action_lines = "\n".join(f"- {a}" for a in actions)
+
+    impact_lines = [
+        f"- **Severity:** {severity}",
+        f"- **Services affected:** {service_text}",
+    ]
+    if total_h:
+        impact_lines.append(f"- **Incident duration:** {total_h}")
+    if mttd_h:
+        impact_lines.append(f"- **MTTD:** {mttd_h}")
+    if mttr_h:
+        impact_lines.append(f"- **MTTR:** {mttr_h}")
+    impact_lines.append(
+        "- **User-visible effects:** inferred from affected services; not independently verified."
+    )
+
+    evidence_block = ""
+    if evidence:
+        evidence_lines = "\n".join(
+            f"- `{e.get('timestamp', '')}`"
+            + (f" *{e.get('source')}*" if e.get("source") else "")
+            + f" — {e.get('event', '')}"
+            for e in evidence
+        )
+        evidence_block = (
+            f"\n\n**Supporting evidence ({len(evidence)} events, "
+            f"confidence: {confidence}):**\n{evidence_lines}"
+        )
 
     return f"""# Incident Postmortem
 
@@ -125,15 +176,13 @@ def _fallback_report(state: PostmortemState) -> str:
 {summary}
 
 ## Impact
-- Severity: {severity}
-- Services affected: {service_text}
-- User-visible effects: not determinable from the available input.
+{chr(10).join(impact_lines)}
 
 ## Timeline
 {chr(10).join(timeline_lines) or "- No timeline events were extracted."}
 
 ## Root Cause
-{root_cause}
+{root_cause}{evidence_block}
 
 ## Contributing Factors
 {factor_lines}
