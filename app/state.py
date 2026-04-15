@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Annotated, Any, TypedDict
 
 
 class TimelineEvent(TypedDict, total=False):
@@ -16,6 +16,12 @@ class Incident(TypedDict, total=False):
     severity: str
 
 
+def _merge_dicts(
+    left: dict[str, Any] | None, right: dict[str, Any] | None
+) -> dict[str, Any]:
+    return {**(left or {}), **(right or {})}
+
+
 class PostmortemState(TypedDict, total=False):
     raw_input: str | dict[str, Any] | list[Any]
     incident: Incident
@@ -27,3 +33,4 @@ class PostmortemState(TypedDict, total=False):
     report_markdown: str
     review_issues: list[str]
     review_passed: bool
+    node_status: Annotated[dict[str, dict[str, Any]], _merge_dicts]

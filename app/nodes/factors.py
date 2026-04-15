@@ -1,9 +1,10 @@
 import json
+import time
 
 from langchain_core.prompts import ChatPromptTemplate
 
 from app.llm import get_llm
-from app.runtime import logger, timed_node
+from app.runtime import attach_node_status, run_with_status
 from app.schemas import ContributingFactors
 from app.state import PostmortemState
 
@@ -24,35 +25,73 @@ PROMPT = ChatPromptTemplate.from_messages(
 
 
 def contributing_factors_node(state: PostmortemState) -> PostmortemState:
-    def _fallback() -> PostmortemState:
-        incident = state.get("incident", {})
-        factors = []
-        events_text = " ".join(
-            str(event.get("event", "")) for event in incident.get("events", [])
-        ).lower()
+    incident = state.get("incident", {})
 
-        if "latency" in events_text:
-            factors.append("Elevated latency was visible before full service degradation.")
-        if "exhausted" in events_text:
-            factors.append("Resource exhaustion reduced recovery headroom during the incident.")
+    def _heuristic() -> PostmortemState:
+        events = incident.get("events", [])
+        services = incident.get("services", [])
+        event_text = " ".join(str(ev.get("event", "")) for ev in events).lower()
+
+        factors: list[str] = []
+        if "exhaust" in event_text or "pool" in event_text:
+            factors.append(
+                "Resource exhaustion (connection or thread pool) limited recovery "
+                "headroom during the incident."
+            )
+        if "latency" in event_text:
+            factors.append(
+                "Elevated latency preceded hard failures, suggesting degradation "
+                "was visible before outage."
+            )
+        if "503" in event_text or "upstream" in event_text:
+            factors.append(
+                "Cascading failures propagated across services via upstream "
+                "dependencies."
+            )
+        if "rollback" in event_text or "deploy" in event_text:
+            factors.append(
+                "A recent deployment correlates with incident onset; rollback "
+                "was the recovery path."
+            )
+        if len(services) > 1:
+            factors.append(
+                f"Multiple services were affected ({', '.join(services)}), "
+                "amplifying user-visible impact."
+            )
+        if any("alert" in str(ev.get("event", "")).lower() for ev in events) and any(
+            "error" in str(ev.get("event", "")).lower() for ev in events
+        ):
+            factors.append(
+                "Alerting fired after error-log signals were already visible, "
+                "indicating a detection-gap between logs and paging."
+            )
+
         if not factors:
-            factors.append("Limited incident detail made secondary contributing factors hard to confirm.")
-
+            factors.append(
+                "Limited incident detail made secondary contributing factors "
+                "hard to confirm."
+            )
         return {"contributing_factors": factors}
 
-    def _run() -> PostmortemState:
-        try:
-            llm = get_llm(temperature=0.2).with_structured_output(ContributingFactors)
-            chain = PROMPT | llm
-            result: ContributingFactors = chain.invoke(
-                {
-                    "incident": json.dumps(state.get("incident", {}), indent=2, default=str),
-                    "root_cause": state.get("root_cause", ""),
-                }
-            )
-            return {"contributing_factors": result.factors}
-        except Exception:
-            logger.exception("factors_fallback heuristic=true")
-            return _fallback()
+    start = time.perf_counter()
+    if incident.get("events"):
+        return attach_node_status(
+            "factors",
+            _heuristic(),
+            source="heuristic",
+            duration_s=time.perf_counter() - start,
+        )
 
-    return timed_node("factors", _run)
+    def _llm() -> PostmortemState:
+        llm = get_llm(temperature=0.2, timeout=20, num_predict=384).with_structured_output(
+            ContributingFactors
+        )
+        result: ContributingFactors = (PROMPT | llm).invoke(
+            {
+                "incident": json.dumps(incident, indent=2, default=str),
+                "root_cause": state.get("root_cause", ""),
+            }
+        )
+        return {"contributing_factors": result.factors}
+
+    return run_with_status("factors", _llm, _heuristic)

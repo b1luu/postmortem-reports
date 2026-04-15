@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Postmortem</title>
+    <style>
+      :root {
+        --bg: #f6f4ee;
+        --panel: #fbfaf6;
+        --text: #151515;
+        --muted: #6d6a63;
+        --line: #d9d4ca;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua",
+          Palatino, Georgia, serif;
+      }
+
+      body {
+        padding: 48px 18px 80px;
+      }
+
+      .shell {
+        width: min(760px, 100%);
+        margin: 0 auto;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        font-weight: 400;
+        letter-spacing: -0.04em;
+      }
+
+      .subtle {
+        margin: 0 0 32px;
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+
+      form,
+      .report {
+        background: var(--panel);
+        border: 1px solid var(--line);
+      }
+
+      textarea,
+      button,
+      input {
+        font: inherit;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 240px;
+        padding: 20px;
+        border: 0;
+        resize: vertical;
+        background: transparent;
+        color: inherit;
+        outline: none;
+        line-height: 1.6;
+      }
+
+      .bar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 18px;
+        border-top: 1px solid var(--line);
+      }
+
+      button {
+        border: 1px solid var(--text);
+        background: var(--text);
+        color: var(--panel);
+        padding: 10px 14px;
+        cursor: pointer;
+      }
+
+      button[disabled] {
+        opacity: 0.45;
+        cursor: wait;
+      }
+
+      .meta {
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .stack {
+        display: grid;
+        gap: 20px;
+      }
+
+      .report {
+        padding: 20px;
+      }
+
+      .statusline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        margin: 0 0 16px;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0 0 16px;
+      }
+
+      .chip {
+        border: 1px solid var(--line);
+        padding: 6px 10px;
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        line-height: 1.65;
+        font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua",
+          Palatino, Georgia, serif;
+        font-size: 1rem;
+      }
+
+      .empty {
+        color: var(--muted);
+        padding: 20px 0 4px;
+      }
+
+      @media (max-width: 640px) {
+        body {
+          padding-top: 32px;
+        }
+
+        .bar {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell stack">
+      <header>
+        <h1>Postmortem</h1>
+        <p class="subtle">Paste incident text. Get a local report.</p>
+      </header>
+
+      <form id="analyze-form">
+        <textarea
+          id="incident-input"
+          name="raw_input"
+          spellcheck="false"
+          placeholder="2026-04-14T09:58:12Z [checkout-svc] INFO deploy v412 started; 2026-04-14T10:01:04Z [checkout-svc] ERROR db pool exhausted; ..."
+        ></textarea>
+        <div class="bar">
+          <div class="meta" id="request-state">Idle.</div>
+          <button id="submit-button" type="submit">Analyze</button>
+        </div>
+      </form>
+
+      <section class="report" aria-live="polite">
+        <div class="statusline">
+          <span id="report-status">No report yet.</span>
+          <span id="report-id"></span>
+        </div>
+        <div class="chips" id="node-status"></div>
+        <pre id="report-output" class="empty">The generated report will appear here.</pre>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById("analyze-form");
+      const input = document.getElementById("incident-input");
+      const submitButton = document.getElementById("submit-button");
+      const requestState = document.getElementById("request-state");
+      const reportStatus = document.getElementById("report-status");
+      const reportId = document.getElementById("report-id");
+      const reportOutput = document.getElementById("report-output");
+      const nodeStatus = document.getElementById("node-status");
+
+      let currentPoll = null;
+
+      function setBusy(isBusy, message) {
+        submitButton.disabled = isBusy;
+        requestState.textContent = message;
+      }
+
+      function renderNodeStatus(statusMap) {
+        nodeStatus.innerHTML = "";
+        for (const [name, details] of Object.entries(statusMap || {})) {
+          const chip = document.createElement("div");
+          chip.className = "chip";
+          chip.textContent = `${name}: ${details.source}`;
+          nodeStatus.appendChild(chip);
+        }
+      }
+
+      function renderReport(data) {
+        reportStatus.textContent = `Status: ${data.status}`;
+        reportId.textContent = data.id ? `ID: ${data.id}` : "";
+        renderNodeStatus(data.node_status);
+
+        if (data.status === "ready") {
+          reportOutput.className = "";
+          reportOutput.textContent = data.report_markdown || "No report body.";
+          setBusy(false, "Done.");
+          return true;
+        }
+
+        if (data.status === "failed") {
+          reportOutput.className = "";
+          reportOutput.textContent = data.error || "Analysis failed.";
+          setBusy(false, "Failed.");
+          return true;
+        }
+
+        reportOutput.className = "empty";
+        reportOutput.textContent = "Running analysis...";
+        return false;
+      }
+
+      async function pollReport(id) {
+        if (currentPoll) {
+          clearTimeout(currentPoll);
+          currentPoll = null;
+        }
+
+        try {
+          const response = await fetch(`/report/${id}`);
+          const data = await response.json();
+          const done = renderReport(data);
+          if (!done) {
+            currentPoll = setTimeout(() => pollReport(id), 900);
+          }
+        } catch (error) {
+          setBusy(false, "Request failed.");
+          reportStatus.textContent = "Status: error";
+          reportOutput.className = "";
+          reportOutput.textContent = String(error);
+        }
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const rawInput = input.value.trim();
+        if (!rawInput) {
+          requestState.textContent = "Paste incident text first.";
+          return;
+        }
+
+        setBusy(true, "Submitting...");
+        reportStatus.textContent = "Status: pending";
+        reportId.textContent = "";
+        reportOutput.className = "empty";
+        reportOutput.textContent = "Queued...";
+        nodeStatus.innerHTML = "";
+
+        try {
+          const response = await fetch("/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ raw_input: rawInput }),
+          });
+          const data = await response.json();
+          reportId.textContent = `ID: ${data.id}`;
+          setBusy(true, "Polling...");
+          pollReport(data.id);
+        } catch (error) {
+          setBusy(false, "Request failed.");
+          reportStatus.textContent = "Status: error";
+          reportOutput.className = "";
+          reportOutput.textContent = String(error);
+        }
+      });
+    </script>
+  </body>
+</html>
