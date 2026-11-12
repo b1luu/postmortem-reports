@@ -11,6 +11,7 @@ Paste incident text or logs into a minimal local UI, run analysis, and retrieve 
 - Computes MTTD, MTTR, and total incident duration from the reconstructed timeline
 - Links the root cause to supporting evidence events with a confidence level
 - Produces a structured markdown postmortem with per-section quality gating
+- Loops back to the writer when the quality gate fails, passing the missing sections as feedback; the final attempt uses a deterministic template, so every run ends with a complete report
 - Stores generated reports in SQLite and exposes recent runs via API + UI sidebar
 - Exposes per-node source (`heuristic` / `llm` / `fallback`), duration, and error
 - Ships a curated sample-incident library that drives both the UI picker and the eval suite

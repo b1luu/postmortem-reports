@@ -10,6 +10,19 @@ from app.nodes import (
 )
 from app.state import PostmortemState
 
+# write -> guard can loop: a report that fails review is rewritten with the
+# reviewer's feedback, and the last attempt uses the deterministic template,
+# which always has every required section.
+MAX_WRITE_ATTEMPTS = 3
+
+
+def route_after_guard(state: PostmortemState) -> str:
+    if state.get("review_passed"):
+        return END
+    if state.get("write_attempts", 0) >= MAX_WRITE_ATTEMPTS:
+        return END
+    return "write"
+
 
 def build_graph():
     g = StateGraph(PostmortemState)
@@ -26,7 +39,7 @@ def build_graph():
     g.add_edge("factors", "timeline")
     g.add_edge("timeline", "write")
     g.add_edge("write", "guard")
-    g.add_edge("guard", END)
+    g.add_conditional_edges("guard", route_after_guard, {"write": "write", END: END})
 
     return g.compile()
 

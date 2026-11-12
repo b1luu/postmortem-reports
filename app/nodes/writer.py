@@ -192,21 +192,38 @@ def _fallback_report(state: PostmortemState) -> str:
 """
 
 
+# Matches app.graph.MAX_WRITE_ATTEMPTS: the final attempt always uses the template.
+FINAL_WRITE_ATTEMPT = 3
+
+FEEDBACK = """
+A previous draft failed review. It was missing these sections: {missing}.
+Rewrite the full report and include every required section."""
+
+
 def writer_node(state: PostmortemState) -> PostmortemState:
     start = time.perf_counter()
-    if not _ENABLE_WRITER_LLM:
+    attempt = state.get("write_attempts", 0) + 1
+    if not _ENABLE_WRITER_LLM or attempt >= FINAL_WRITE_ATTEMPT:
         return attach_node_status(
             "write",
-            {"report_markdown": _fallback_report(state)},
-            source="heuristic",
+            {"report_markdown": _fallback_report(state), "write_attempts": attempt},
+            source="heuristic" if not _ENABLE_WRITER_LLM else "fallback",
             duration_s=time.perf_counter() - start,
         )
 
+    review_issues = state.get("review_issues") or []
+
     def _llm() -> PostmortemState:
         llm = get_llm(temperature=0.3, timeout=45, num_predict=1200)
-        chain = PROMPT | llm
+        prompt = PROMPT
+        if review_issues:
+            prompt = ChatPromptTemplate.from_messages(
+                [("system", SYSTEM), ("human", HUMAN + FEEDBACK)]
+            )
+        chain = prompt | llm
         msg = chain.invoke(
             {
+                "missing": ", ".join(review_issues),
                 "incident": json.dumps(
                     state.get("incident", {}), indent=2, default=str
                 ),
@@ -227,9 +244,9 @@ def writer_node(state: PostmortemState) -> PostmortemState:
         content = msg.content if hasattr(msg, "content") else str(msg)
         if not content or "## Summary" not in content:
             raise ValueError("writer output missing required sections")
-        return {"report_markdown": content}
+        return {"report_markdown": content, "write_attempts": attempt}
 
     def _fallback() -> PostmortemState:
-        return {"report_markdown": _fallback_report(state)}
+        return {"report_markdown": _fallback_report(state), "write_attempts": attempt}
 
     return run_with_status("write", _llm, _fallback)
