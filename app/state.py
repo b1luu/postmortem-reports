@@ -35,4 +35,5 @@ class PostmortemState(TypedDict, total=False):
     report_markdown: str
     review_issues: list[str]
     review_passed: bool
+    write_attempts: int
     node_status: Annotated[dict[str, dict[str, Any]], _merge_dicts]
