@@ -1,4 +1,10 @@
+import json
+from pathlib import Path
+
+from app.graph import build_graph
 from app.nodes.root_cause import root_cause_node
+
+SAMPLES_DIR = Path(__file__).resolve().parent.parent / "samples"
 
 
 def test_attaches_evidence_for_error_events():
@@ -16,3 +22,16 @@ def test_attaches_evidence_for_error_events():
     assert "pool" in out["root_cause"].lower()
     assert len(out["root_cause_evidence"]) >= 2
     assert out["root_cause_confidence"] in ("low", "medium", "high")
+    # Events without ids (direct call, no parse) give id None.
+    assert out["root_cause_evidence"][0]["id"] is None
+
+
+def test_checkout_evidence_excludes_detection():
+    sample = json.loads((SAMPLES_DIR / "checkout_pool_exhaustion.json").read_text())
+    out = build_graph().invoke({"raw_input": sample["raw_input"]})
+    evidence = out["root_cause_evidence"]
+    # e5 is the PagerDuty alert "... for checkout error rate": DETECTION, not evidence.
+    assert [e["id"] for e in evidence] == ["e2", "e3", "e4"]
+    for item in evidence:
+        assert set(item) >= {"id", "signals"}
+        assert set(item["signals"]) & {"error", "precursor"}

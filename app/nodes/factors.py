@@ -2,10 +2,18 @@ import json
 import time
 
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableConfig
 
-from app.llm import get_llm
+from app.config import Mode, get_chat_model, get_mode
 from app.runtime import attach_node_status, run_with_status
 from app.schemas import ContributingFactors
+from app.signals import (
+    RESOURCE_RE,
+    Signal,
+    display_text,
+    event_signals,
+    latest_change_before,
+)
 from app.state import PostmortemState
 
 SYSTEM = """You are a senior SRE. Identify SECONDARY contributing factors that
@@ -24,46 +32,60 @@ PROMPT = ChatPromptTemplate.from_messages(
 )
 
 
-def contributing_factors_node(state: PostmortemState) -> PostmortemState:
+def contributing_factors_node(
+    state: PostmortemState, config: RunnableConfig | None = None
+) -> PostmortemState:
+    mode = get_mode(config)
     incident = state.get("incident", {})
+    events = state.get("ordered_timeline") or incident.get("events", [])
 
     def _heuristic() -> PostmortemState:
-        events = incident.get("events", [])
         services = incident.get("services", [])
-        event_text = " ".join(str(ev.get("event", "")) for ev in events).lower()
+        started_id = (state.get("inflection_event_ids") or {}).get("started")
+        durations = state.get("durations") or {}
+        labelled = [(ev, event_signals(ev)) for ev in events]
+        errors = [ev for ev, sigs in labelled if Signal.ERROR in sigs]
 
         factors: list[str] = []
-        if "exhaust" in event_text or "pool" in event_text:
+        if any(RESOURCE_RE.search(str(ev.get("event", ""))) for ev in errors):
             factors.append(
                 "Resource exhaustion (connection or thread pool) limited recovery "
                 "headroom during the incident."
             )
-        if "latency" in event_text:
+        error_idx = [i for i, (_, sigs) in enumerate(labelled) if Signal.ERROR in sigs]
+        if error_idx and any(
+            Signal.PRECURSOR in sigs for _, sigs in labelled[: error_idx[0]]
+        ):
             factors.append(
-                "Elevated latency preceded hard failures, suggesting degradation "
-                "was visible before outage."
+                "Early degradation signals (lag, latency, backlog) preceded hard "
+                "failures, so the issue was visible before the outage."
             )
-        if "503" in event_text or "upstream" in event_text:
+        error_sources: list[str] = []
+        for ev in errors:
+            src = ev.get("source", "")
+            if src and src not in error_sources:
+                error_sources.append(src)
+        if len(error_sources) >= 2:
             factors.append(
-                "Cascading failures propagated across services via upstream "
-                "dependencies."
+                f"Failures spread across services ({', '.join(error_sources)}), "
+                "indicating cascading impact through dependencies."
             )
-        if "rollback" in event_text or "deploy" in event_text:
+        change = latest_change_before(events, started_id)
+        if change is not None:
             factors.append(
-                "A recent deployment correlates with incident onset; rollback "
-                "was the recovery path."
+                "A change shortly preceded incident onset "
+                f"({display_text(str(change.get('event', '')))} at "
+                f"{change.get('timestamp', '')}); treat it as a suspected trigger."
             )
         if len(services) > 1:
             factors.append(
                 f"Multiple services were affected ({', '.join(services)}), "
                 "amplifying user-visible impact."
             )
-        if any("alert" in str(ev.get("event", "")).lower() for ev in events) and any(
-            "error" in str(ev.get("event", "")).lower() for ev in events
-        ):
+        if (durations.get("mttd_seconds") or 0) > 0:
             factors.append(
-                "Alerting fired after error-log signals were already visible, "
-                "indicating a detection-gap between logs and paging."
+                f"Alerting fired {durations.get('mttd_human')} after the first error "
+                "or degradation signal, indicating a detection gap."
             )
 
         if not factors:
@@ -74,7 +96,7 @@ def contributing_factors_node(state: PostmortemState) -> PostmortemState:
         return {"contributing_factors": factors}
 
     start = time.perf_counter()
-    if incident.get("events"):
+    if mode is Mode.HEURISTIC or events:
         return attach_node_status(
             "factors",
             _heuristic(),
@@ -83,9 +105,9 @@ def contributing_factors_node(state: PostmortemState) -> PostmortemState:
         )
 
     def _llm() -> PostmortemState:
-        llm = get_llm(temperature=0.2, timeout=20, num_predict=384).with_structured_output(
-            ContributingFactors
-        )
+        llm = get_chat_model(
+            config, node="factors", temperature=0.2, timeout=20, num_predict=384
+        ).with_structured_output(ContributingFactors)
         result: ContributingFactors = (PROMPT | llm).invoke(
             {
                 "incident": json.dumps(incident, indent=2, default=str),

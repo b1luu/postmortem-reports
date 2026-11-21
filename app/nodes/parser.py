@@ -1,13 +1,20 @@
 import json
+import logging
 import re
 import time
+from typing import Any
 
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableConfig
+from pydantic import ValidationError
 
-from app.llm import get_llm
+from app.config import Mode, get_chat_model, get_mode
 from app.runtime import attach_node_status, run_with_status
-from app.schemas import ParsedIncident
-from app.state import Incident, PostmortemState
+from app.schemas import ParsedIncident, TimelineEventModel
+from app.signals import error_tokens
+from app.state import Incident, PostmortemState, TimelineEvent
+
+logger = logging.getLogger("postmortem.parse")
 
 SYSTEM = """You are an SRE assistant. Extract a structured incident from raw input.
 Return ONLY the fields requested. If a field is unknown, use an empty list or "unknown".
@@ -18,23 +25,15 @@ PROMPT = ChatPromptTemplate.from_messages(
     [("system", SYSTEM), ("human", "Raw incident input:\n\n{raw}")]
 )
 
+NO_EVENTS_MSG = "no events parsed; set POSTMORTEM_MODE=llm for LLM extraction"
+
 _TIMESTAMP_RE = re.compile(
-    r"(?P<timestamp>\d{4}-\d{2}-\d{2}T[^\s]+)\s+(?:\[(?P<source>[^\]]+)\]\s+)?(?P<event>.+)"
+    r"(?P<timestamp>\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:[.,]\d+)?)?"
+    r"(?:Z|[+-]\d{2}(?::?\d{2})?)?)\s+(?:\[(?P<source>[^\]]+)\]\s+)?(?P<event>.+)"
 )
 _SEV_RE = re.compile(r"\bsev[1-4]\b", re.IGNORECASE)
-_ERROR_KEYWORDS = (
-    "error",
-    "exception",
-    "timeout",
-    "latency",
-    "exhausted",
-    "failed",
-    "failure",
-    "unavailable",
-    "crash",
-    "5\\d\\d",
-)
-_ERROR_RE = re.compile("|".join(_ERROR_KEYWORDS), re.IGNORECASE)
+_SEVERITIES = {"sev1", "sev2", "sev3", "sev4", "unknown"}
+_INCIDENT_KEYS = ("events", "services", "error_signals", "severity")
 
 
 def _coerce_raw(raw) -> str:
@@ -46,100 +45,152 @@ def _coerce_raw(raw) -> str:
         return str(raw)
 
 
-def _heuristic_parse(raw) -> Incident:
-    raw_text = _coerce_raw(raw)
-    events: list[dict] = []
-    services_seen: list[str] = []
-
+def _chunks(text: str) -> list[str]:
     chunks: list[str] = []
-    for line in raw_text.splitlines():
+    for line in text.splitlines():
         chunks.extend(part.strip() for part in line.split(";") if part.strip())
+    return chunks
 
-    for chunk in chunks:
-        match = _TIMESTAMP_RE.match(chunk)
-        if not match:
-            continue
-        source = (match.group("source") or "").strip()
-        events.append(
-            {
-                "timestamp": match.group("timestamp"),
-                "event": match.group("event").strip(" ;"),
-                "source": source,
+
+def _normalize_events(items: list[Any]) -> list[TimelineEvent]:
+    """Turn log lines and event dicts into TimelineEvents; skip anything else."""
+    events: list[TimelineEvent] = []
+    for item in items:
+        if isinstance(item, str):
+            for chunk in _chunks(item):
+                match = _TIMESTAMP_RE.match(chunk)
+                if not match:
+                    continue
+                events.append(
+                    {
+                        "timestamp": match.group("timestamp"),
+                        "event": match.group("event").strip(" ;"),
+                        "source": (match.group("source") or "").strip(),
+                    }
+                )
+        elif isinstance(item, dict):
+            coerced = {
+                "timestamp": str(item.get("timestamp") or ""),
+                "event": str(item.get("event") or item.get("message") or ""),
+                "source": str(item.get("source") or ""),
             }
-        )
-        if source and source not in services_seen:
-            services_seen.append(source)
+            try:
+                model = TimelineEventModel(**coerced)
+            except ValidationError:
+                continue
+            if model.event.strip() == "":
+                continue
+            events.append(model.model_dump())
+        else:
+            logger.warning("parse_skipped_item type=%s", type(item).__name__)
+    return events
 
-    sev_match = _SEV_RE.search(raw_text)
-    severity = sev_match.group(0).lower() if sev_match else "unknown"
 
-    error_signals: list[str] = []
-    for hit in _ERROR_RE.findall(raw_text):
-        token = hit.lower()
-        if token not in error_signals:
-            error_signals.append(token)
+def assign_event_ids(events: list[TimelineEvent]) -> list[TimelineEvent]:
+    """Number events e0..eN in input order, replacing any caller-supplied id."""
+    for i, ev in enumerate(events):
+        ev["id"] = f"e{i}"
+    return events
 
+
+def _services_from(events: list[TimelineEvent]) -> list[str]:
+    services: list[str] = []
+    for ev in events:
+        source = ev.get("source", "")
+        if source and source not in services:
+            services.append(source)
+    return services
+
+
+def _str_list(value: Any) -> list[str]:
+    return [str(x) for x in value] if isinstance(value, list) else []
+
+
+def _has_content(raw: Any) -> bool:
+    if isinstance(raw, str):
+        return raw.strip() != ""
+    if isinstance(raw, (list, dict)):
+        return len(raw) > 0
+    return str(raw).strip() != ""
+
+
+def _is_structured(raw: Any) -> bool:
+    return isinstance(raw, dict) and any(k in raw for k in _INCIDENT_KEYS)
+
+
+def _structured_parse(raw: dict) -> Incident:
+    events = _normalize_events(raw["events"]) if isinstance(raw.get("events"), list) else []
+    assign_event_ids(events)
+    severity = str(raw.get("severity", "unknown")).lower()
     return {
         "events": events,
-        "services": services_seen,
-        "error_signals": error_signals,
-        "severity": severity,
+        "services": _str_list(raw.get("services")) or _services_from(events),
+        "error_signals": _str_list(raw.get("error_signals")),
+        "severity": severity if severity in _SEVERITIES else "unknown",
     }
 
 
-def _structured_dict_fast_path(raw) -> Incident | None:
-    if isinstance(raw, dict) and any(
-        k in raw for k in ("events", "services", "error_signals", "severity")
-    ):
-        return {
-            "events": raw.get("events", []),
-            "services": raw.get("services", []),
-            "error_signals": raw.get("error_signals", []),
-            "severity": raw.get("severity", "unknown"),
-        }
-    return None
+def _heuristic_parse(raw) -> Incident:
+    """Regex path for log text, lists of lines/dicts, and anything else."""
+    if isinstance(raw, list):
+        items = raw
+    else:
+        items = [raw if isinstance(raw, str) else str(raw)]
+    events = assign_event_ids(_normalize_events(items))
+    raw_text = _coerce_raw(raw)
+    sev_match = _SEV_RE.search(raw_text)
+    return {
+        "events": events,
+        "services": _services_from(events),
+        "error_signals": error_tokens(raw_text),
+        "severity": sev_match.group(0).lower() if sev_match else "unknown",
+    }
 
 
-def input_parser_node(state: PostmortemState) -> PostmortemState:
+def input_parser_node(
+    state: PostmortemState, config: RunnableConfig | None = None
+) -> PostmortemState:
     raw = state.get("raw_input", "")
+    mode = get_mode(config)
     start = time.perf_counter()
 
-    fast = _structured_dict_fast_path(raw)
-    if fast is not None:
-        return attach_node_status(
-            "parse",
-            {"incident": fast},
-            source="input",
-            duration_s=time.perf_counter() - start,
-        )
+    structured = _is_structured(raw)
+    baseline = _structured_parse(raw) if structured else _heuristic_parse(raw)
+    source = "input" if structured else "heuristic"
 
-    baseline = _heuristic_parse(raw)
-    if baseline["events"]:
-        return attach_node_status(
-            "parse",
-            {"incident": baseline},
-            source="heuristic",
-            duration_s=time.perf_counter() - start,
-        )
+    error = None
+    if not baseline["events"] and _has_content(raw):
+        if mode is Mode.HEURISTIC:
+            error = NO_EVENTS_MSG
+        elif not structured:
 
-    def _llm() -> PostmortemState:
-        llm = get_llm(temperature=0.0, timeout=25, num_predict=512).with_structured_output(
-            ParsedIncident
-        )
-        parsed: ParsedIncident = (PROMPT | llm).invoke({"raw": _coerce_raw(raw)})
+            def _llm() -> PostmortemState:
+                llm = get_chat_model(
+                    config, node="parse", temperature=0.0, timeout=25, num_predict=512
+                ).with_structured_output(ParsedIncident)
+                parsed: ParsedIncident = (PROMPT | llm).invoke({"raw": _coerce_raw(raw)})
+                llm_events = assign_event_ids(
+                    _normalize_events([e.model_dump() for e in parsed.events])
+                )
+                merged: Incident = {
+                    "events": llm_events or baseline["events"],
+                    "services": parsed.services or baseline["services"],
+                    "error_signals": parsed.error_signals or baseline["error_signals"],
+                    "severity": parsed.severity
+                    if parsed.severity and parsed.severity != "unknown"
+                    else baseline["severity"],
+                }
+                return {"incident": merged}
 
-        llm_events = [e.model_dump() for e in parsed.events]
-        merged: Incident = {
-            "events": llm_events or baseline["events"],
-            "services": parsed.services or baseline["services"],
-            "error_signals": parsed.error_signals or baseline["error_signals"],
-            "severity": parsed.severity
-            if parsed.severity and parsed.severity != "unknown"
-            else baseline["severity"],
-        }
-        return {"incident": merged}
+            def _fallback() -> PostmortemState:
+                return {"incident": baseline}
 
-    def _fallback() -> PostmortemState:
-        return {"incident": baseline}
+            return run_with_status("parse", _llm, _fallback)
 
-    return run_with_status("parse", _llm, _fallback)
+    return attach_node_status(
+        "parse",
+        {"incident": baseline},
+        source=source,
+        duration_s=time.perf_counter() - start,
+        error=error,
+    )

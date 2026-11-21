@@ -139,6 +139,7 @@ def report(report_id: str) -> dict:
         "node_status": node_status,
         "durations": state.get("durations") or {},
         "inflection_points": state.get("inflection_points") or {},
+        "inflection_event_ids": state.get("inflection_event_ids") or {},
         "incident": state.get("incident") or {},
         "root_cause_evidence": state.get("root_cause_evidence") or [],
         "error": row.get("error"),

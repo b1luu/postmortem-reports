@@ -8,6 +8,17 @@
     "min_services": 2,
     "severity": "sev3",
     "expect_root_cause_substring": "lag",
-    "expect_resolution": true
+    "expect_resolution": true,
+    "started": "2026-01-18T22:15:22Z",
+    "detected": "2026-01-18T22:25:00Z",
+    "resolved": "2026-01-18T22:56:00Z",
+    "mttd_human": "9m 38s",
+    "mttr_human": "31m 0s",
+    "total_human": "40m 38s",
+    "evidence_ids": [
+      "e1",
+      "e2",
+      "e3"
+    ]
   }
 }

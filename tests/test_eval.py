@@ -49,10 +49,18 @@ def test_sample_end_to_end(sample_path: Path):
             f"severity mismatch on {sample['id']}: {incident.get('severity')}"
         )
 
-    # Timeline durations computed
+    # Inflection points and durations match the curated expectations exactly
+    inflection = final.get("inflection_points", {})
     durations = final.get("durations", {})
-    assert durations.get("total_seconds") is not None
-    assert durations.get("mttr_human")
+    for point in ("started", "detected", "resolved"):
+        if point in exp:
+            assert inflection.get(point) == exp[point], (sample["id"], point, inflection)
+    for key in ("mttd_human", "mttr_human", "total_human"):
+        if key in exp:
+            assert durations.get(key) == exp[key], (sample["id"], key, durations)
+    if exp.get("expect_resolution"):
+        assert durations.get("total_seconds") is not None
+        assert durations.get("mttr_human")
 
     # Root cause content
     rc = final.get("root_cause", "").lower()
@@ -61,7 +69,12 @@ def test_sample_end_to_end(sample_path: Path):
             f"root cause for {sample['id']} did not mention "
             f"{exp['expect_root_cause_substring']!r}: {rc[:200]}"
         )
-    assert final.get("root_cause_evidence"), "expected supporting evidence"
+    evidence = final.get("root_cause_evidence") or []
+    assert evidence, "expected supporting evidence"
+    if "evidence_ids" in exp:
+        assert [e["id"] for e in evidence] == exp["evidence_ids"]
+    assert evidence[0]["id"] == final["inflection_event_ids"]["started"]
+    assert final.get("root_cause_confidence") == "medium"
 
     # Writer output — all sections present
     report = final.get("report_markdown", "")

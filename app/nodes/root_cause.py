@@ -1,12 +1,13 @@
 import json
-import re
 import time
 
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableConfig
 
-from app.llm import get_llm
+from app.config import Mode, get_chat_model, get_mode
 from app.runtime import attach_node_status, run_with_status
 from app.schemas import RootCause
+from app.signals import Signal, event_signals, signal_values
 from app.state import PostmortemState
 
 SYSTEM = """You are a senior SRE performing root cause analysis.
@@ -18,22 +19,13 @@ PROMPT = ChatPromptTemplate.from_messages(
     [("system", SYSTEM), ("human", "Incident:\n{incident}")]
 )
 
-_HTTP_ERROR_RE = re.compile(r"\b(?:5\d\d|50[03])\b", re.IGNORECASE)
-_PRECURSOR_RE = re.compile(
-    r"\b(?:consumer lag|replication lag|certificate has expired|cert(?:ificate)? expired)\b",
-    re.IGNORECASE,
-)
+_CAUSE_SIGNALS = {Signal.ERROR, Signal.PRECURSOR}
 
 
-def _matches_root_cause_signal(text: str) -> bool:
-    if _PRECURSOR_RE.search(text) is not None:
-        return True
-    if any(k in text for k in ("error", "fail", "exhaust", "timeout", "unavailable", "crash")):
-        return True
-    return _HTTP_ERROR_RE.search(text) is not None
-
-
-def root_cause_node(state: PostmortemState) -> PostmortemState:
+def root_cause_node(
+    state: PostmortemState, config: RunnableConfig | None = None
+) -> PostmortemState:
+    mode = get_mode(config)
     incident = state.get("incident", {})
     # Prefer the timeline node's chronologically sorted events; raw incident
     # events are in input order, which is arbitrary for merged multi-source logs.
@@ -45,15 +37,17 @@ def root_cause_node(state: PostmortemState) -> PostmortemState:
         primary_event = None
         evidence: list[dict] = []
         for ev in events:
-            text = str(ev.get("event", "")).lower()
-            if _matches_root_cause_signal(text):
+            signals = event_signals(ev)
+            if signals & _CAUSE_SIGNALS:
                 if primary_event is None:
                     primary_event = ev
                 evidence.append(
                     {
+                        "id": ev.get("id"),
                         "timestamp": ev.get("timestamp", ""),
                         "source": ev.get("source", ""),
                         "event": ev.get("event", ""),
+                        "signals": signal_values(signals),
                     }
                 )
             if len(evidence) >= 4:
@@ -85,7 +79,7 @@ def root_cause_node(state: PostmortemState) -> PostmortemState:
         }
 
     start = time.perf_counter()
-    if events or incident.get("error_signals"):
+    if mode is Mode.HEURISTIC or events or incident.get("error_signals"):
         return attach_node_status(
             "root_cause",
             _heuristic(),
@@ -94,9 +88,9 @@ def root_cause_node(state: PostmortemState) -> PostmortemState:
         )
 
     def _llm() -> PostmortemState:
-        llm = get_llm(temperature=0.1, timeout=20, num_predict=384).with_structured_output(
-            RootCause
-        )
+        llm = get_chat_model(
+            config, node="root_cause", temperature=0.1, timeout=20, num_predict=384
+        ).with_structured_output(RootCause)
         result: RootCause = (PROMPT | llm).invoke(
             {
                 "incident": json.dumps(

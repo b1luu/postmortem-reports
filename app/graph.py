@@ -1,5 +1,6 @@
 from langgraph.graph import END, START, StateGraph
 
+from app import config as app_config
 from app.nodes import (
     contributing_factors_node,
     guard_node,
@@ -10,16 +11,14 @@ from app.nodes import (
 )
 from app.state import PostmortemState
 
+
 # write -> guard can loop: a report that fails review is rewritten with the
-# reviewer's feedback, and the last attempt uses the deterministic template,
-# which always has every required section.
-MAX_WRITE_ATTEMPTS = 3
-
-
+# reviewer's feedback, and the last attempt (app.config.MAX_WRITE_ATTEMPTS)
+# uses the deterministic template, which always has every required section.
 def route_after_guard(state: PostmortemState) -> str:
     if state.get("review_passed"):
         return END
-    if state.get("write_attempts", 0) >= MAX_WRITE_ATTEMPTS:
+    if state.get("write_attempts", 0) >= app_config.MAX_WRITE_ATTEMPTS:
         return END
     return "write"
 

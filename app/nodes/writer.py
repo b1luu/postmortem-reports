@@ -1,11 +1,13 @@
 import json
-import os
 import time
 
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableConfig
 
-from app.llm import get_llm
+from app import config as app_config
+from app.config import Mode, get_chat_model, get_mode
 from app.runtime import attach_node_status, run_with_status
+from app.signals import RESOURCE_RE, Signal, event_signals, latest_change_before
 from app.state import PostmortemState
 
 SYSTEM = """You are a staff SRE writing a formal incident postmortem in Markdown.
@@ -46,11 +48,6 @@ Contributing factors:
 """
 
 PROMPT = ChatPromptTemplate.from_messages([("system", SYSTEM), ("human", HUMAN)])
-_ENABLE_WRITER_LLM = os.getenv("POSTMORTEM_ENABLE_WRITER_LLM", "").lower() in {
-    "1",
-    "true",
-    "yes",
-}
 
 
 def _fallback_report(state: PostmortemState) -> str:
@@ -60,21 +57,20 @@ def _fallback_report(state: PostmortemState) -> str:
     severity = incident.get("severity", "unknown")
     factors = state.get("contributing_factors", [])
     root_cause = state.get("root_cause", "Unknown")
-    inflection = state.get("inflection_points", {})
+    inflection = state.get("inflection_points") or {}
+    inflection_ids = state.get("inflection_event_ids") or {}
     durations = state.get("durations", {}) or {}
     evidence = state.get("root_cause_evidence", []) or []
     confidence = state.get("root_cause_confidence", "unknown")
 
     timeline_lines = []
     for ev in events:
-        marker = ""
         ts = ev.get("timestamp", "")
-        if ts and ts == inflection.get("started"):
-            marker = " **[started]**"
-        elif ts and ts == inflection.get("detected"):
-            marker = " **[detected]**"
-        elif ts and ts == inflection.get("resolved"):
-            marker = " **[resolved]**"
+        marker = "".join(
+            f" **[{point}]**"
+            for point in ("started", "detected", "resolved")
+            if ev.get("id") is not None and ev.get("id") == inflection_ids.get(point)
+        )
         timeline_lines.append(
             f"- `{ts or 'unknown'}`"
             + (f" *{ev.get('source')}*" if ev.get("source") else "")
@@ -105,21 +101,19 @@ def _fallback_report(state: PostmortemState) -> str:
         "\n".join(f"- {f}" for f in factors) if factors else "- None identified"
     )
 
-    event_text = " ".join(str(ev.get("event", "")) for ev in events).lower()
     actions: list[str] = []
-    if "pool" in event_text or "exhaust" in event_text:
+    if any(
+        Signal.ERROR in event_signals(ev) and RESOURCE_RE.search(str(ev.get("event", "")))
+        for ev in events
+    ):
         actions.append(
             "Review and raise connection pool / resource limits for affected services, and add utilization alerts."
         )
-    if "deploy" in event_text or "rollback" in event_text:
+    if latest_change_before(events, inflection_ids.get("started")) is not None:
         actions.append(
             "Add pre-deployment canary checks and automated rollback gates tied to error-rate SLOs."
         )
-    if (
-        inflection.get("started")
-        and inflection.get("detected")
-        and inflection["started"] != inflection["detected"]
-    ):
+    if (durations.get("mttd_seconds") or 0) > 0:
         actions.append(
             f"Close detection gap ({inflection['started']} → {inflection['detected']}) by alerting on the error signals observed before paging."
         )
@@ -153,6 +147,8 @@ def _fallback_report(state: PostmortemState) -> str:
         impact_lines.append(f"- **MTTD:** {mttd_h}")
     if mttr_h:
         impact_lines.append(f"- **MTTR:** {mttr_h}")
+    for warning in durations.get("warnings") or []:
+        impact_lines.append(f"- **Timing caveat:** {warning}")
     impact_lines.append(
         "- **User-visible effects:** inferred from affected services; not independently verified."
     )
@@ -192,29 +188,32 @@ def _fallback_report(state: PostmortemState) -> str:
 """
 
 
-# Matches app.graph.MAX_WRITE_ATTEMPTS: the final attempt always uses the template.
-FINAL_WRITE_ATTEMPT = 3
-
 FEEDBACK = """
 A previous draft failed review. It was missing these sections: {missing}.
 Rewrite the full report and include every required section."""
 
 
-def writer_node(state: PostmortemState) -> PostmortemState:
+def writer_node(
+    state: PostmortemState, config: RunnableConfig | None = None
+) -> PostmortemState:
     start = time.perf_counter()
+    heuristic = get_mode(config) is Mode.HEURISTIC
     attempt = state.get("write_attempts", 0) + 1
-    if not _ENABLE_WRITER_LLM or attempt >= FINAL_WRITE_ATTEMPT:
+    # The last allowed attempt always uses the template, so the loop ends.
+    if heuristic or attempt >= app_config.MAX_WRITE_ATTEMPTS:
         return attach_node_status(
             "write",
             {"report_markdown": _fallback_report(state), "write_attempts": attempt},
-            source="heuristic" if not _ENABLE_WRITER_LLM else "fallback",
+            source="heuristic" if heuristic else "fallback",
             duration_s=time.perf_counter() - start,
         )
 
     review_issues = state.get("review_issues") or []
 
     def _llm() -> PostmortemState:
-        llm = get_llm(temperature=0.3, timeout=45, num_predict=1200)
+        llm = get_chat_model(
+            config, node="write", temperature=0.3, timeout=45, num_predict=1200
+        )
         prompt = PROMPT
         if review_issues:
             prompt = ChatPromptTemplate.from_messages(

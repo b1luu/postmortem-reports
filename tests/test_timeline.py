@@ -39,3 +39,54 @@ def test_timeline_node_identifies_inflection_points():
     assert inf["resolved"] == "2026-04-14T10:10:00Z"
     assert out["durations"]["mttd_human"] == "2m 0s"
     assert out["durations"]["mttr_human"] == "7m 0s"
+
+
+def _timeline(lines: list[str]) -> dict:
+    events = [
+        {"id": f"e{i}", "timestamp": ts, "event": text, "source": "s"}
+        for i, (ts, text) in enumerate(line.split(" ", 1) for line in lines)
+    ]
+    return timeline_node({"incident": {"events": events}})
+
+
+def test_entries_are_labelled_and_inflections_carry_ids():
+    out = _timeline(
+        [
+            "2026-04-14T10:00:00Z deploy v412 started",
+            "2026-04-14T10:01:00Z ERROR db pool exhausted",
+            "2026-04-14T10:03:00Z pagerduty alert fired",
+            "2026-04-14T10:10:00Z rollback complete",
+        ]
+    )
+    assert [ev["signals"] for ev in out["ordered_timeline"]] == [
+        ["change"],
+        ["error"],
+        ["detection"],
+        ["resolution", "mitigation"],
+    ]
+    assert out["inflection_event_ids"] == {"started": "e1", "detected": "e2", "resolved": "e3"}
+
+
+def test_unsupported_points_are_none_not_guessed():
+    out = _timeline(["2026-04-14T10:01:00Z ERROR db pool exhausted"])
+    assert out["inflection_points"] == {
+        "started": "2026-04-14T10:01:00Z",
+        "detected": None,
+        "resolved": None,
+    }
+    assert out["inflection_event_ids"] == {"started": "e0", "detected": None, "resolved": None}
+    assert out["durations"]["mttd_seconds"] is None
+    assert out["durations"]["total_seconds"] is None
+
+
+def test_negative_mttd_is_omitted_with_warning():
+    out = _timeline(
+        [
+            "2026-04-14T10:00:00Z alert fired",
+            "2026-04-14T10:05:00Z ERROR db pool exhausted",
+        ]
+    )
+    assert out["durations"]["mttd_seconds"] is None
+    assert out["durations"]["warnings"] == [
+        "MTTD omitted: detected (2026-04-14T10:00:00Z) precedes started (2026-04-14T10:05:00Z)"
+    ]

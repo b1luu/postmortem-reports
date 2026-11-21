@@ -1,7 +1,9 @@
 import time
+import uuid
 
 from fastapi.testclient import TestClient
 
+from app.db import create_pending_report, init_db, save_report
 from app.main import app
 
 
@@ -34,7 +36,56 @@ def _roundtrip(client):
     assert report["review_passed"] is True
     assert "## Summary" in report["report_markdown"]
     assert report["durations"].get("mttr_human")
+    assert report["inflection_event_ids"]["started"]
 
     # Runs endpoint lists this run
     runs = client.get("/api/runs").json()
     assert any(r["id"] == report_id for r in runs)
+
+REPORT_KEYS = {
+    "id",
+    "created_at",
+    "status",
+    "review_passed",
+    "report_markdown",
+    "node_status",
+    "durations",
+    "inflection_points",
+    "inflection_event_ids",
+    "incident",
+    "root_cause_evidence",
+    "error",
+}
+
+
+def test_report_reads_legacy_state_row():
+    # A row saved before 2a: no ids/signals, no inflection_event_ids, no warnings.
+    legacy_state = {
+        "report_markdown": "# Incident Postmortem\n## Summary\nold",
+        "inflection_points": {
+            "started": "2026-04-14T10:01:04Z",
+            "detected": "2026-04-14T10:03:11Z",
+            "resolved": "2026-04-14T10:13:10Z",
+        },
+        "durations": {"mttd_seconds": 127.0, "mttd_human": "2m 7s"},
+        "incident": {
+            "events": [
+                {"timestamp": "2026-04-14T10:01:04Z", "event": "ERROR pool", "source": "a"}
+            ]
+        },
+        "node_status": {"parse": {"source": "heuristic", "duration_s": 0.0, "error": None}},
+        "review_passed": True,
+    }
+    with TestClient(app) as client:
+        init_db()
+        report_id = uuid.uuid4().hex
+        create_pending_report(report_id, "x")
+        save_report(report_id, legacy_state)
+        current = client.post("/analyze", json={"raw_input": "x"}).json()["id"]
+
+        resp = client.get(f"/report/{report_id}")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert set(body) == REPORT_KEYS
+        assert set(client.get(f"/report/{current}").json()) == REPORT_KEYS
+        assert body["inflection_event_ids"] == {}

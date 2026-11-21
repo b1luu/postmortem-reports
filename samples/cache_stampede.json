@@ -8,6 +8,18 @@
     "min_services": 3,
     "severity": "sev2",
     "expect_root_cause_substring": "redis",
-    "expect_resolution": true
+    "expect_resolution": true,
+    "started": "2026-03-22T14:10:00Z",
+    "detected": "2026-03-22T14:13:02Z",
+    "resolved": "2026-03-22T14:18:45Z",
+    "mttd_human": "3m 2s",
+    "mttr_human": "5m 43s",
+    "total_human": "8m 45s",
+    "evidence_ids": [
+      "e0",
+      "e1",
+      "e2",
+      "e3"
+    ]
   }
 }

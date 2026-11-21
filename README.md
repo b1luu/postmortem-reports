@@ -25,7 +25,7 @@ This project is intentionally local-first.
 - Async analysis job flow
 - Report retrieval through `/report/{id}`
 - Deterministic heuristic path enabled by default for fast turnaround
-- Optional Ollama-backed writer mode for richer output
+- Optional Ollama-backed `llm` mode (`POSTMORTEM_MODE=llm`) for richer output
 
 ## Tech Stack
 
@@ -93,7 +93,13 @@ Important variables:
 - `OLLAMA_MODEL`
 - `OLLAMA_BASE_URL`
 - `POSTMORTEM_DB_PATH`
-- `POSTMORTEM_ENABLE_WRITER_LLM`
+- `POSTMORTEM_MODE` — `heuristic` (default) or `llm`, read at the start of each
+  run. `heuristic` never calls the LLM; input it cannot parse into timestamped
+  events yields an empty incident and a `node_status.parse.error` suggesting
+  `llm` mode. `llm` adds LLM extraction for such input and an
+  LLM-written report (rewritten on review failure, template on the last attempt).
+  A run can override it with LangGraph `config={"configurable": {"mode": ...}}`.
+  Any other value makes every run fail with a `ValueError`.
 - `LANGSMITH_*` if you want tracing enabled
 
 ## API
@@ -126,7 +132,12 @@ Response fields:
 - `review_passed`
 - `node_status` — `{ parse|timeline|root_cause|factors|write|guard: { source, duration_s, error } }`
 - `durations` — `{ mttd_human, mttr_human, total_human, ... }`
-- `inflection_points` — `{ started, detected, resolved }`
+- `inflection_points` — `{ started, detected, resolved }` timestamps. A value is
+  `null` when the input has no event supporting it (for example no alert, so no
+  `detected`); nothing is guessed, and durations that depend on it are `null` too.
+- `inflection_event_ids` — `{ started, detected, resolved }` event ids (`e0`, `e1`, …
+  in input order, as on `incident.events`), or `null` as above
+- `durations.warnings` — timing caveats, e.g. an alert logged before the first error
 - `incident` — parsed events, services, severity, error signals
 - `root_cause_evidence` — supporting events with timestamps and sources
 - `error`
@@ -165,6 +176,6 @@ budget, all required sections present, minimum action items, review gate passing
 ## Notes
 
 - The current default path is heuristic-first for speed and reliability.
-- Writer LLM usage is optional and disabled by default.
+- LLM usage is optional; `POSTMORTEM_MODE` defaults to `heuristic`.
 - Reports are persisted locally in SQLite.
 - This is a local-first MVP, not a production incident management platform.
