@@ -1,5 +1,5 @@
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.runtime import attach_node_status
 from app.state import PostmortemState
@@ -22,9 +22,22 @@ def _parse_ts(ts: str) -> datetime | None:
     if not ts:
         return None
     try:
-        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(ts.replace("Z", "+00:00"))
     except ValueError:
         return None
+    # Treat offset-less timestamps as UTC so naive and aware values compare.
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _sort_key(event: dict) -> tuple:
+    """Chronological order; unparseable timestamps go last in input order.
+
+    Sorting the raw strings breaks on mixed UTC offsets
+    ("10:05+02:00" is earlier than "09:00Z"). Unparseable keys are all equal,
+    so the stable sort keeps them in the order they were logged.
+    """
+    parsed = _parse_ts(str(event.get("timestamp", "")))
+    return (0, parsed) if parsed else (1,)
 
 
 def _format_delta(seconds: float) -> str:
@@ -62,7 +75,7 @@ def _compute_durations(points: dict[str, str]) -> dict[str, str | float | None]:
 
 def timeline_node(state: PostmortemState) -> PostmortemState:
     events = list(state.get("incident", {}).get("events", []))
-    events.sort(key=lambda e: str(e.get("timestamp", "")))
+    events.sort(key=_sort_key)
 
     def _heuristic_inflection() -> dict[str, str]:
         if not events:

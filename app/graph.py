@@ -27,17 +27,19 @@ def route_after_guard(state: PostmortemState) -> str:
 def build_graph():
     g = StateGraph(PostmortemState)
     g.add_node("parse", input_parser_node)
+    g.add_node("timeline", timeline_node)
     g.add_node("root_cause", root_cause_node)
     g.add_node("factors", contributing_factors_node)
-    g.add_node("timeline", timeline_node)
     g.add_node("write", writer_node)
     g.add_node("guard", guard_node)
 
+    # timeline runs before root_cause: "earliest error" only means something
+    # once events from different sources are in chronological order.
     g.add_edge(START, "parse")
-    g.add_edge("parse", "root_cause")
+    g.add_edge("parse", "timeline")
+    g.add_edge("timeline", "root_cause")
     g.add_edge("root_cause", "factors")
-    g.add_edge("factors", "timeline")
-    g.add_edge("timeline", "write")
+    g.add_edge("factors", "write")
     g.add_edge("write", "guard")
     g.add_conditional_edges("guard", route_after_guard, {"write": "write", END: END})
 

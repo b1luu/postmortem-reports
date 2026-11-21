@@ -35,9 +35,11 @@ def _matches_root_cause_signal(text: str) -> bool:
 
 def root_cause_node(state: PostmortemState) -> PostmortemState:
     incident = state.get("incident", {})
+    # Prefer the timeline node's chronologically sorted events; raw incident
+    # events are in input order, which is arbitrary for merged multi-source logs.
+    events = state.get("ordered_timeline") or incident.get("events", [])
 
     def _heuristic() -> PostmortemState:
-        events = incident.get("events", [])
         error_signals = incident.get("error_signals", [])
 
         primary_event = None
@@ -83,7 +85,7 @@ def root_cause_node(state: PostmortemState) -> PostmortemState:
         }
 
     start = time.perf_counter()
-    if incident.get("events") or incident.get("error_signals"):
+    if events or incident.get("error_signals"):
         return attach_node_status(
             "root_cause",
             _heuristic(),
@@ -96,7 +98,11 @@ def root_cause_node(state: PostmortemState) -> PostmortemState:
             RootCause
         )
         result: RootCause = (PROMPT | llm).invoke(
-            {"incident": json.dumps(incident, indent=2, default=str)}
+            {
+                "incident": json.dumps(
+                    {**incident, "events": events}, indent=2, default=str
+                )
+            }
         )
         return {
             "root_cause": f"{result.root_cause}\n\n_Reasoning:_ {result.reasoning}",

@@ -124,7 +124,7 @@ Response fields:
 - `status`
 - `report_markdown`
 - `review_passed`
-- `node_status` — `{ parse|root_cause|factors|timeline|write|guard: { source, duration_s, error } }`
+- `node_status` — `{ parse|timeline|root_cause|factors|write|guard: { source, duration_s, error } }`
 - `durations` — `{ mttd_human, mttr_human, total_human, ... }`
 - `inflection_points` — `{ started, detected, resolved }`
 - `incident` — parsed events, services, severity, error signals
