@@ -57,6 +57,9 @@ REPORT_KEYS = {
     "root_cause_evidence",
     "root_cause_analysis",
     "contributing_factor_details",
+    "parse_coverage",
+    "review_issues",
+    "review_blockers",
     "error",
 }
 

@@ -144,5 +144,8 @@ def report(report_id: str) -> dict:
         "root_cause_evidence": state.get("root_cause_evidence") or [],
         "root_cause_analysis": state.get("root_cause_analysis") or {},
         "contributing_factor_details": state.get("contributing_factor_details") or [],
+        "parse_coverage": state.get("parse_coverage") or {},
+        "review_issues": state.get("review_issues") or [],
+        "review_blockers": state.get("review_blockers") or [],
         "error": row.get("error"),
     }

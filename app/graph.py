@@ -15,8 +15,12 @@ from app.state import PostmortemState
 # write -> guard can loop: a report that fails review is rewritten with the
 # reviewer's feedback, and the last attempt (app.config.MAX_WRITE_ATTEMPTS)
 # uses the deterministic template, which always has every required section.
+# Blockers (no events, no evidence) are analysis problems a rewrite can't fix,
+# so the run ends with review_passed=False instead of looping.
 def route_after_guard(state: PostmortemState) -> str:
     if state.get("review_passed"):
+        return END
+    if state.get("review_blockers"):
         return END
     if state.get("write_attempts", 0) >= app_config.MAX_WRITE_ATTEMPTS:
         return END
