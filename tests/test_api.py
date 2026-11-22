@@ -54,6 +54,9 @@ REPORT_KEYS = {
     "inflection_event_ids",
     "incident",
     "root_cause_evidence",
+    "parse_coverage",
+    "review_issues",
+    "review_blockers",
     "error",
 }
 

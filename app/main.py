@@ -142,5 +142,8 @@ def report(report_id: str) -> dict:
         "inflection_event_ids": state.get("inflection_event_ids") or {},
         "incident": state.get("incident") or {},
         "root_cause_evidence": state.get("root_cause_evidence") or [],
+        "parse_coverage": state.get("parse_coverage") or {},
+        "review_issues": state.get("review_issues") or [],
+        "review_blockers": state.get("review_blockers") or [],
         "error": row.get("error"),
     }

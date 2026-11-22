@@ -149,6 +149,13 @@ def _fallback_report(state: PostmortemState) -> str:
         impact_lines.append(f"- **MTTR:** {mttr_h}")
     for warning in durations.get("warnings") or []:
         impact_lines.append(f"- **Timing caveat:** {warning}")
+    coverage = state.get("parse_coverage") or {}
+    if coverage.get("lines_dropped"):
+        impact_lines.append(
+            f"- **Input caveat:** {coverage['lines_dropped']} of "
+            f"{coverage['lines_total']} input lines could not be placed on the "
+            "timeline and were not analyzed."
+        )
     impact_lines.append(
         "- **User-visible effects:** inferred from affected services; not independently verified."
     )
@@ -208,7 +215,8 @@ def writer_node(
             duration_s=time.perf_counter() - start,
         )
 
-    review_issues = state.get("review_issues") or []
+    # Only missing sections are writer-fixable; blockers end the run in routing.
+    review_issues = [i for i in state.get("review_issues") or [] if i.startswith("## ")]
 
     def _llm() -> PostmortemState:
         llm = get_chat_model(
