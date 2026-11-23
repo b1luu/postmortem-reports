@@ -37,6 +37,8 @@ class PostmortemState(TypedDict, total=False):
     inflection_event_ids: dict[str, str | None]
     durations: dict[str, Any]
     root_cause_evidence: list[dict[str, Any]]
+    root_cause_analysis: dict[str, Any]  # RootCauseAnalysis.model_dump()
+    contributing_factor_details: list[dict[str, Any]]  # ContributingFactor dumps
     report_markdown: str
     review_issues: list[str]
     review_passed: bool
