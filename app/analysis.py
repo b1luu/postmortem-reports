@@ -51,7 +51,7 @@ def facts_pack(state: Mapping, *, with_timestamps: bool = False) -> dict[str, An
     parsed = [parse_ts(ev.get("timestamp", "")) for ev in events]
     base = next((ts for ts in parsed if ts is not None), None)
     timeline = []
-    for ev, ts in zip(events, parsed):
+    for ev, ts in zip(events, parsed, strict=True):
         item: dict[str, Any] = {
             "id": ev.get("id"),
             "t_plus_s": int((ts - base).total_seconds()) if ts is not None else None,
@@ -97,9 +97,7 @@ def events_after(trigger_ev: Mapping, events: Sequence[Mapping]) -> list[Mapping
     return [ev for ev in later if parse_ts(ev.get("timestamp", "")) is not None]
 
 
-def _text_problem(
-    text: str, index: Mapping[str, Mapping], cited: Sequence[Mapping]
-) -> str | None:
+def _text_problem(text: str, index: Mapping[str, Mapping], cited: Sequence[Mapping]) -> str | None:
     cited_text = [str(ev.get("event", "")) for ev in cited]
     cited_times = {m.group(0) for t in cited_text for m in _TIMESTAMP_RE.finditer(t)}
     cited_tokens = {m.group(0) for t in cited_text for m in _EVENT_ID_RE.finditer(t)}

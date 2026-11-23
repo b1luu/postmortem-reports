@@ -171,3 +171,51 @@ def test_empty_input_has_no_error_and_no_llm(raw, mode):
     assert forbid.calls == []
     assert status["source"] == "heuristic"  # {} has no incident keys
     assert status["error"] is None
+
+
+def test_semicolon_inside_a_message_stays_one_event():
+    raw = "2026-04-14T10:00:00Z [api] ERROR request failed; retrying with backoff"
+    inc = _heuristic_parse(raw)
+    assert [ev["event"] for ev in inc["events"]] == ["ERROR request failed; retrying with backoff"]
+
+
+def test_untimestamped_lines_attach_to_previous_event():
+    raw = (
+        "2026-04-14T10:00:00Z [api] ERROR NullPointerException\n"
+        "    at com.foo.Bar(Bar.java:12)\n"
+        "Caused by: ConnectionResetException\n"
+        "2026-04-14T10:01:00Z [api] recovered"
+    )
+    inc, status = _parse(raw)
+    assert len(inc["events"]) == 2
+    assert inc["events"][0]["detail"] == [
+        "at com.foo.Bar(Bar.java:12)",
+        "Caused by: ConnectionResetException",
+    ]
+    assert "detail" not in inc["events"][1]
+    assert status["error"] is None
+
+
+def test_parse_reports_coverage():
+    raw = (
+        "preamble with no timestamp\n"
+        "2026-04-14T10:00:00Z [api] ERROR boom\n"
+        "  stack frame\n"
+        "2026-04-14T10:01:00Z [api] recovered"
+    )
+    out = input_parser_node({"raw_input": raw}, {"configurable": {"mode": "heuristic"}})
+    assert out["parse_coverage"] == {
+        "lines_total": 4,
+        "lines_parsed": 2,
+        "lines_attached": 1,
+        "lines_dropped": 1,
+        "dropped_samples": ["preamble with no timestamp"],
+    }
+
+
+def test_dropped_lines_show_up_as_report_caveat():
+    from app.graph import build_graph
+
+    raw = "preamble\n2026-04-14T10:00:00Z [api] ERROR boom\n2026-04-14T10:01:00Z [api] recovered"
+    out = build_graph().invoke({"raw_input": raw})
+    assert "1 of 3 input lines could not be placed" in out["report_markdown"]

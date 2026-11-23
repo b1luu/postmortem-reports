@@ -37,18 +37,16 @@ def test_sample_end_to_end(sample_path: Path):
     elapsed = time.perf_counter() - t0
 
     # Latency bar
-    assert elapsed < MAX_RUN_SECONDS, (
-        f"{sample['id']} ran in {elapsed:.2f}s (> {MAX_RUN_SECONDS}s)"
-    )
+    assert elapsed < MAX_RUN_SECONDS, f"{sample['id']} ran in {elapsed:.2f}s (> {MAX_RUN_SECONDS}s)"
 
     # Parse correctness
     incident = final.get("incident", {})
     assert len(incident.get("events", [])) >= exp.get("min_events", 1)
     assert len(incident.get("services", [])) >= exp.get("min_services", 1)
     if exp.get("severity"):
-        assert incident.get("severity") == exp["severity"], (
-            f"severity mismatch on {sample['id']}: {incident.get('severity')}"
-        )
+        assert (
+            incident.get("severity") == exp["severity"]
+        ), f"severity mismatch on {sample['id']}: {incident.get('severity')}"
 
     # Inflection points and durations match the curated expectations exactly
     inflection = final.get("inflection_points", {})
@@ -98,9 +96,7 @@ def test_sample_end_to_end(sample_path: Path):
     # Writer quality: at least N action items
     action_block = report.split("## Action Items", 1)[-1]
     items = [ln for ln in action_block.splitlines() if ln.startswith("- ")]
-    assert len(items) >= MIN_ACTION_ITEMS, (
-        f"{sample['id']} produced only {len(items)} action items"
-    )
+    assert len(items) >= MIN_ACTION_ITEMS, f"{sample['id']} produced only {len(items)} action items"
 
     # Print per-sample summary when -s is passed
     print(

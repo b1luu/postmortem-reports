@@ -15,21 +15,10 @@
     "mttd_human": "2m 7s",
     "mttr_human": "9m 59s",
     "total_human": "12m 6s",
-    "evidence_ids": [
-      "e2",
-      "e3",
-      "e4"
-    ],
+    "evidence_ids": ["e2", "e3", "e4"],
     "trigger_event_id": "e1",
     "trigger_kind": "suspected_change",
-    "symptom_ids": [
-      "e2",
-      "e3",
-      "e4"
-    ],
-    "affected_services": [
-      "checkout-svc",
-      "api-gateway"
-    ]
+    "symptom_ids": ["e2", "e3", "e4"],
+    "affected_services": ["checkout-svc", "api-gateway"]
   }
 }

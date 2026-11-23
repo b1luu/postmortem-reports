@@ -70,9 +70,7 @@ NEGATION_BEFORE_RE = re.compile(
 STILL_BEFORE_RE = re.compile(r"\bstill(?:\s+\S+){0,2}\s+$", re.IGNORECASE)
 STILL_AFTER_RE = re.compile(r"^\s*(?:\S+\s+)?still\b", re.IGNORECASE)
 # Case-sensitive on purpose: only strip an upper-case log level prefix.
-LEVEL_PREFIX_RE = re.compile(
-    r"^(?:TRACE|DEBUG|INFO|NOTICE|WARN(?:ING)?|ERROR|FATAL|CRITICAL)\s+"
-)
+LEVEL_PREFIX_RE = re.compile(r"^(?:TRACE|DEBUG|INFO|NOTICE|WARN(?:ING)?|ERROR|FATAL|CRITICAL)\s+")
 
 _INCIDENT_RE = re.compile(r"\bincident\b", re.IGNORECASE)
 

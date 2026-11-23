@@ -108,7 +108,5 @@ def list_recent_reports(limit: int = 20) -> list[dict]:
 
 def get_report(report_id: str) -> dict | None:
     with connect() as c:
-        row = c.execute(
-            "SELECT * FROM reports WHERE id = ?", (report_id,)
-        ).fetchone()
+        row = c.execute("SELECT * FROM reports WHERE id = ?", (report_id,)).fetchone()
         return dict(row) if row else None

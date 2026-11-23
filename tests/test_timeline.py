@@ -26,8 +26,16 @@ def test_timeline_node_identifies_inflection_points():
         "incident": {
             "events": [
                 {"timestamp": "2026-04-14T10:00:00Z", "event": "deploy started", "source": "a"},
-                {"timestamp": "2026-04-14T10:01:00Z", "event": "ERROR pool exhausted", "source": "a"},
-                {"timestamp": "2026-04-14T10:03:00Z", "event": "pagerduty alert fired", "source": "pd"},
+                {
+                    "timestamp": "2026-04-14T10:01:00Z",
+                    "event": "ERROR pool exhausted",
+                    "source": "a",
+                },
+                {
+                    "timestamp": "2026-04-14T10:03:00Z",
+                    "event": "pagerduty alert fired",
+                    "source": "pd",
+                },
                 {"timestamp": "2026-04-14T10:10:00Z", "event": "rollback complete", "source": "a"},
             ]
         }

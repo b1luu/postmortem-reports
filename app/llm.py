@@ -22,8 +22,6 @@ def get_llm(
         base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
         temperature=temperature,
         num_predict=num_predict if num_predict is not None else _DEFAULT_NUM_PREDICT,
-        sync_client_kwargs={
-            "timeout": timeout if timeout is not None else _DEFAULT_TIMEOUT
-        },
+        sync_client_kwargs={"timeout": timeout if timeout is not None else _DEFAULT_TIMEOUT},
         **kwargs,
     )

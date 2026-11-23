@@ -9,6 +9,7 @@ class TimelineEvent(TypedDict, total=False):
     event: str
     source: str
     signals: list[str]  # Signal values; only on ordered_timeline entries
+    detail: list[str]  # following lines with no timestamp (stack frames, etc.)
 
 
 class Incident(TypedDict, total=False):
@@ -18,15 +19,15 @@ class Incident(TypedDict, total=False):
     severity: str
 
 
-def _merge_dicts(
-    left: dict[str, Any] | None, right: dict[str, Any] | None
-) -> dict[str, Any]:
+def _merge_dicts(left: dict[str, Any] | None, right: dict[str, Any] | None) -> dict[str, Any]:
     return {**(left or {}), **(right or {})}
 
 
 class PostmortemState(TypedDict, total=False):
     raw_input: str | dict[str, Any] | list[Any]
     incident: Incident
+    # lines_total / lines_parsed / lines_attached / lines_dropped / dropped_samples
+    parse_coverage: dict[str, Any]
     root_cause: str
     root_cause_confidence: str
     contributing_factors: list[str]
@@ -41,6 +42,8 @@ class PostmortemState(TypedDict, total=False):
     contributing_factor_details: list[dict[str, Any]]  # ContributingFactor dumps
     report_markdown: str
     review_issues: list[str]
+    # Problems with the analysis itself; rewriting the report can't fix them.
+    review_blockers: list[str]
     review_passed: bool
     write_attempts: int
     node_status: Annotated[dict[str, dict[str, Any]], _merge_dicts]

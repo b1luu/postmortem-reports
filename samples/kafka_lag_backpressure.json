@@ -15,20 +15,10 @@
     "mttd_human": "9m 38s",
     "mttr_human": "31m 0s",
     "total_human": "40m 38s",
-    "evidence_ids": [
-      "e1",
-      "e2",
-      "e3"
-    ],
+    "evidence_ids": ["e1", "e2", "e3"],
     "trigger_event_id": "e1",
     "trigger_kind": "first_signal",
-    "symptom_ids": [
-      "e2",
-      "e3"
-    ],
-    "affected_services": [
-      "orders-consumer",
-      "fulfillment-svc"
-    ]
+    "symptom_ids": ["e2", "e3"],
+    "affected_services": ["orders-consumer", "fulfillment-svc"]
   }
 }

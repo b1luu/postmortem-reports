@@ -12,6 +12,8 @@ Paste incident text or logs into a minimal local UI, run analysis, and retrieve 
 - Links the root cause to supporting evidence events with a confidence level
 - Produces a structured markdown postmortem with per-section quality gating
 - Loops back to the writer when the quality gate fails, passing the missing sections as feedback; the final attempt uses a deterministic template, so every run ends with a complete report
+- Fails review (without looping) when the analysis has nothing behind it: no events extracted, or no evidence for the root cause
+- Reports parse coverage so input lines are never dropped silently
 - Stores generated reports in SQLite and exposes recent runs via API + UI sidebar
 - Exposes per-node source (`heuristic` / `llm` / `fallback`), duration, and error
 - Ships a curated sample-incident library that drives both the UI picker and the eval suite
@@ -142,6 +144,14 @@ Response fields:
 - `root_cause_evidence` — supporting events with timestamps and sources
 - `root_cause_analysis` — trigger, symptoms, evidence ids and confidence are validated against the timeline; `reasoning` is an unverified hypothesis in `llm` mode (`{}` on older reports)
 - `contributing_factor_details` — factors with category and evidence ids; factor text is an unverified hypothesis in `llm` mode (`[]` on older reports)
+- `parse_coverage` — `{ lines_total, lines_parsed, lines_attached, lines_dropped, dropped_samples }`.
+  Lines without a timestamp (stack frames, `Caused by:`) are attached to the event
+  before them as `detail`; anything that can't be placed is counted as dropped and
+  noted in the report's Impact section.
+- `review_issues` — everything the review flagged (missing sections and blockers)
+- `review_blockers` — analysis problems a rewrite can't fix: no events extracted, or
+  a root cause with no supporting evidence. They fail the review and end the run
+  without looping back to the writer.
 - `error`
 
 ### `GET /api/samples`

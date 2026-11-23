@@ -15,23 +15,10 @@
     "mttd_human": "3m 2s",
     "mttr_human": "5m 43s",
     "total_human": "8m 45s",
-    "evidence_ids": [
-      "e0",
-      "e1",
-      "e2",
-      "e3"
-    ],
+    "evidence_ids": ["e0", "e1", "e2", "e3"],
     "trigger_event_id": "e0",
     "trigger_kind": "first_signal",
-    "symptom_ids": [
-      "e1",
-      "e2",
-      "e3"
-    ],
-    "affected_services": [
-      "redis-primary",
-      "catalog-svc",
-      "catalog-db"
-    ]
+    "symptom_ids": ["e1", "e2", "e3"],
+    "affected_services": ["redis-primary", "catalog-svc", "catalog-db"]
   }
 }

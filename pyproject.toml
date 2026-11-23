@@ -1,0 +1,10 @@
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+extend-exclude = [".venv", "node_modules"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "ASYNC"]
+# E501 is left to the formatter. B008 flags FastAPI's standard Depends() style.
+# UP038 is deprecated by Ruff because its rewrite makes isinstance slower.
+ignore = ["E501", "B008", "UP038"]

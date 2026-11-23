@@ -3,9 +3,7 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Callable
-from typing import Any, TypeVar
-
-T = TypeVar("T")
+from typing import Any
 
 logger = logging.getLogger("postmortem")
 
@@ -42,39 +40,11 @@ def run_with_status(
     try:
         result = llm_fn()
         duration = time.perf_counter() - start
-        logger.info(
-            "node_completed name=%s source=llm duration_s=%.3f", name, duration
-        )
-        return attach_node_status(
-            name, result, source="llm", duration_s=duration, error=None
-        )
+        logger.info("node_completed name=%s source=llm duration_s=%.3f", name, duration)
+        return attach_node_status(name, result, source="llm", duration_s=duration, error=None)
     except Exception as exc:
         duration = time.perf_counter() - start
         err = f"{type(exc).__name__}: {exc}"
-        logger.warning(
-            "node_fallback name=%s duration_s=%.3f error=%s", name, duration, err
-        )
+        logger.warning("node_fallback name=%s duration_s=%.3f error=%s", name, duration, err)
         result = fallback_fn()
-        return attach_node_status(
-            name, result, source="fallback", duration_s=duration, error=err
-        )
-
-
-def timed_node(name: str, fn: Callable[[], T]) -> T:
-    """Legacy helper — prefer run_with_status for nodes with a fallback path."""
-    start = time.perf_counter()
-    try:
-        result = fn()
-    except Exception:
-        logger.exception(
-            "node_failed name=%s duration_s=%.3f",
-            name,
-            time.perf_counter() - start,
-        )
-        raise
-    logger.info(
-        "node_completed name=%s duration_s=%.3f",
-        name,
-        time.perf_counter() - start,
-    )
-    return result
+        return attach_node_status(name, result, source="fallback", duration_s=duration, error=err)
