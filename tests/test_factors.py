@@ -49,7 +49,7 @@ def test_sample_factors_and_action_count(name):
     out = _run(name)
     factors = out["contributing_factors"]
     assert len(factors) == len(prefixes), factors
-    for factor, prefix in zip(factors, prefixes):
+    for factor, prefix in zip(factors, prefixes, strict=True):
         assert factor.startswith(prefix), (factor, prefix)
     assert len(_action_items(out["report_markdown"])) == n_actions
 
@@ -126,7 +126,13 @@ def _factor(category, ids, text="Rollback took a manual step"):
 LLM_ROWS = [
     ("valid", [_factor("process", ["e6"])], "llm", [["e6"]], None),
     ("empty", [], "llm", [], None),
-    ("only trigger and symptom ids", [_factor("change", ["e1", "e2"])], "fallback", None, NO_VALID_FACTORS),
+    (
+        "only trigger and symptom ids",
+        [_factor("change", ["e1", "e2"])],
+        "fallback",
+        None,
+        NO_VALID_FACTORS,
+    ),
     ("mixed ids", [_factor("process", ["e2", "e6", "e99"])], "llm", [["e6"]], None),
     (
         "detection with only an alert id",
@@ -135,7 +141,13 @@ LLM_ROWS = [
         [[]],
         None,
     ),
-    ("process with only an alert id", [_factor("process", ["e5"])], "fallback", None, NO_VALID_FACTORS),
+    (
+        "process with only an alert id",
+        [_factor("process", ["e5"])],
+        "fallback",
+        None,
+        NO_VALID_FACTORS,
+    ),
 ]
 
 
@@ -154,7 +166,7 @@ def test_llm_factors_table(factors, source, stored, error):
     assert out["contributing_factors"] == [d["factor"] for d in details]
     if stored is None:
         assert len(details) == len(HEURISTIC_PREFIXES)
-        for detail, prefix in zip(details, HEURISTIC_PREFIXES):
+        for detail, prefix in zip(details, HEURISTIC_PREFIXES, strict=True):
             assert detail["factor"].startswith(prefix)
     else:
         assert [d["evidence_event_ids"] for d in details] == stored
