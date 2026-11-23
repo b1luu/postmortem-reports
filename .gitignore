@@ -5,3 +5,6 @@ __pycache__/
 .env
 *.db
 .langgraph_cache/
+.ruff_cache/
+node_modules/
+mutation-report.json
