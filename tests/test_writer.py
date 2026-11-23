@@ -54,3 +54,14 @@ def test_negative_mttd_is_a_timing_caveat():
         "precedes started (2026-04-14T10:05:00Z)"
     ) in report
     assert "- **MTTD:**" not in report
+
+
+def test_monitoring_source_is_not_a_service_affected():
+    state = _state(
+        "2026-04-14T10:00:00Z [svc-a] ERROR db pool exhausted\n"
+        "2026-04-14T10:01:00Z [svc-b] 503 upstream unavailable\n"
+        "2026-04-14T10:02:00Z [pagerduty] alert fired"
+    )
+    report = _fallback_report(state)
+    assert "- **Services affected:** svc-a, svc-b\n" in report
+    assert "pagerduty" in state["incident"]["services"]
