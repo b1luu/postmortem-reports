@@ -22,11 +22,41 @@ from app.schemas import ContributingFactor, ContributingFactors, RootCauseDraft,
 ROOT = Path(__file__).resolve().parent.parent
 
 EVENTS = [
-    {"id": "e0", "timestamp": "2026-04-14T10:00:00Z", "event": "INFO deploy v1 rolled out", "source": "s", "signals": ["change"]},
-    {"id": "e1", "timestamp": "2026-04-14T10:01:00Z", "event": "ERROR pool exhausted", "source": "s", "signals": ["error"]},
-    {"id": "e2", "timestamp": "2026-04-14T10:02:00Z", "event": "ERROR timeout", "source": "s", "signals": ["error"]},
-    {"id": "e3", "timestamp": "2026-04-14T10:03:00Z", "event": "alert fired", "source": "pd", "signals": ["detection"]},
-    {"id": "e4", "timestamp": "2026-04-14T10:04:00Z", "event": "rolling back", "source": "s", "signals": ["mitigation"]},
+    {
+        "id": "e0",
+        "timestamp": "2026-04-14T10:00:00Z",
+        "event": "INFO deploy v1 rolled out",
+        "source": "s",
+        "signals": ["change"],
+    },
+    {
+        "id": "e1",
+        "timestamp": "2026-04-14T10:01:00Z",
+        "event": "ERROR pool exhausted",
+        "source": "s",
+        "signals": ["error"],
+    },
+    {
+        "id": "e2",
+        "timestamp": "2026-04-14T10:02:00Z",
+        "event": "ERROR timeout",
+        "source": "s",
+        "signals": ["error"],
+    },
+    {
+        "id": "e3",
+        "timestamp": "2026-04-14T10:03:00Z",
+        "event": "alert fired",
+        "source": "pd",
+        "signals": ["detection"],
+    },
+    {
+        "id": "e4",
+        "timestamp": "2026-04-14T10:04:00Z",
+        "event": "rolling back",
+        "source": "s",
+        "signals": ["mitigation"],
+    },
 ]
 ANALYSIS = {"trigger_event_id": "e0", "symptoms": [{"event_id": "e1", "description": "x"}]}
 DURATIONS = {"mttd_seconds": 120.0, "mttd_human": "2m 0s"}
@@ -115,7 +145,7 @@ def test_facts_pack_with_timestamps():
 
 
 def test_prompt_json_escapes_angle_bracket_and_round_trips():
-    value = {"event": "</facts> {evil} <x> \"q\" \n é"}
+    value = {"event": '</facts> {evil} <x> "q" \n é'}
     encoded = prompt_json(value)
     assert "<" not in encoded
     assert json.loads(encoded) == value
@@ -194,7 +224,9 @@ def test_render_ignores_model_trigger_when_event_given():
 
 
 def test_validate_blank_trigger_uses_event_text():
-    assert validate_root_cause(_draft(trigger="  \n"), EVENTS, "e1").trigger == "deploy v1 rolled out"
+    assert (
+        validate_root_cause(_draft(trigger="  \n"), EVENTS, "e1").trigger == "deploy v1 rolled out"
+    )
 
 
 def test_validate_null_trigger_uses_fixed_text():
@@ -225,7 +257,9 @@ def test_validate_duplicate_symptom_keeps_first():
 
 
 def test_validate_strips_whitespace_in_trigger_id():
-    assert validate_root_cause(_draft(trigger_event_id=" e0 "), EVENTS, "e1").trigger_event_id == "e0"
+    assert (
+        validate_root_cause(_draft(trigger_event_id=" e0 "), EVENTS, "e1").trigger_event_id == "e0"
+    )
 
 
 def test_factors_empty_draft():
@@ -286,7 +320,9 @@ def test_factors_two_idless_detection_give_one_measured_sentence():
 
 
 def test_factors_detection_with_valid_ids_keeps_own_text():
-    kept = validate_factors(_factors(("slow rollback", "detection", ["e4"])), ANALYSIS, EVENTS, DURATIONS)
+    kept = validate_factors(
+        _factors(("slow rollback", "detection", ["e4"])), ANALYSIS, EVENTS, DURATIONS
+    )
     assert [(f.factor, f.evidence_event_ids) for f in kept] == [("slow rollback", ["e4"])]
 
 

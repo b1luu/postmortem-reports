@@ -42,6 +42,7 @@ def _roundtrip(client):
     runs = client.get("/api/runs").json()
     assert any(r["id"] == report_id for r in runs)
 
+
 REPORT_KEYS = {
     "id",
     "created_at",
@@ -71,9 +72,7 @@ def test_report_reads_legacy_state_row():
         },
         "durations": {"mttd_seconds": 127.0, "mttd_human": "2m 7s"},
         "incident": {
-            "events": [
-                {"timestamp": "2026-04-14T10:01:04Z", "event": "ERROR pool", "source": "a"}
-            ]
+            "events": [{"timestamp": "2026-04-14T10:01:04Z", "event": "ERROR pool", "source": "a"}]
         },
         "node_status": {"parse": {"source": "heuristic", "duration_s": 0.0, "error": None}},
         "review_passed": True,

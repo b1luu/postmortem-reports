@@ -97,7 +97,9 @@ MONITOR_ROWS = [
 ]
 
 
-@pytest.mark.parametrize("texts,expected", [r[1:] for r in MONITOR_ROWS], ids=[r[0] for r in MONITOR_ROWS])
+@pytest.mark.parametrize(
+    "texts,expected", [r[1:] for r in MONITOR_ROWS], ids=[r[0] for r in MONITOR_ROWS]
+)
 def test_affected_services_drops_monitoring_sources(texts, expected):
     events = [{"source": "mon", "event": text} for text in texts]
     assert affected_services(["mon"], events) == expected

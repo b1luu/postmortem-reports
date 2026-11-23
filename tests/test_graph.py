@@ -145,9 +145,7 @@ def test_llm_metadata_on_every_call(monkeypatch):
     fake = _scripted_fake()
     config = {"configurable": {"llm_factory": lambda **_: fake}}
     out = build_graph().invoke({"raw_input": PROSE}, config=config)
-    assert [c["metadata"] for c in fake.calls] == [
-        {"mode": "llm", "node": n} for n in LLM_NODES
-    ]
+    assert [c["metadata"] for c in fake.calls] == [{"mode": "llm", "node": n} for n in LLM_NODES]
     for node in LLM_NODES:
         assert out["node_status"][node]["source"] == "llm"
         assert out["node_status"][node]["error"] is None

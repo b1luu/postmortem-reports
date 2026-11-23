@@ -31,11 +31,41 @@ PROSE = "Checkout went down for a while, sev3."
 T = "2026-04-14T10:0{}:00Z"
 
 EVENTS = [
-    {"id": "e0", "timestamp": T.format(0), "event": "deploy v1 rolled out at 09:30", "source": "s", "signals": ["change"]},
-    {"id": "e1", "timestamp": T.format(1), "event": "ERROR pool exhausted", "source": "s", "signals": ["error"]},
-    {"id": "e2", "timestamp": T.format(2), "event": "ERROR timeout", "source": "s", "signals": ["error"]},
-    {"id": "e3", "timestamp": T.format(3), "event": "ERROR db down at 09:45", "source": "s", "signals": ["error"]},
-    {"id": "e4", "timestamp": T.format(4), "event": "rolling back", "source": "s", "signals": ["mitigation"]},
+    {
+        "id": "e0",
+        "timestamp": T.format(0),
+        "event": "deploy v1 rolled out at 09:30",
+        "source": "s",
+        "signals": ["change"],
+    },
+    {
+        "id": "e1",
+        "timestamp": T.format(1),
+        "event": "ERROR pool exhausted",
+        "source": "s",
+        "signals": ["error"],
+    },
+    {
+        "id": "e2",
+        "timestamp": T.format(2),
+        "event": "ERROR timeout",
+        "source": "s",
+        "signals": ["error"],
+    },
+    {
+        "id": "e3",
+        "timestamp": T.format(3),
+        "event": "ERROR db down at 09:45",
+        "source": "s",
+        "signals": ["error"],
+    },
+    {
+        "id": "e4",
+        "timestamp": T.format(4),
+        "event": "rolling back",
+        "source": "s",
+        "signals": ["mitigation"],
+    },
 ]
 
 
@@ -94,22 +124,39 @@ def test_confidence_never_exceeds_the_models_claim(claim):
 
 def test_trigger_at_the_same_timestamp_as_started_is_valid():
     events = [
-        {"id": "e0", "timestamp": T.format(0), "event": "ERROR pool exhausted", "signals": ["error"]},
-        {"id": "e1", "timestamp": T.format(0), "event": "deploy v1 rolled out", "signals": ["change"]},
+        {
+            "id": "e0",
+            "timestamp": T.format(0),
+            "event": "ERROR pool exhausted",
+            "signals": ["error"],
+        },
+        {
+            "id": "e1",
+            "timestamp": T.format(0),
+            "event": "deploy v1 rolled out",
+            "signals": ["change"],
+        },
     ]
-    out = validate_root_cause(_draft(trigger_event_id="e1", evidence_event_ids=["e0"]), events, "e0")
+    out = validate_root_cause(
+        _draft(trigger_event_id="e1", evidence_event_ids=["e0"]), events, "e0"
+    )
     assert out.trigger_event_id == "e1"
 
 
 def test_trigger_without_change_or_cause_signal_is_unknown_kind():
-    events = [{"id": "e0", "timestamp": T.format(0), "event": "cache cleared", "signals": []}, *EVENTS[1:]]
+    events = [
+        {"id": "e0", "timestamp": T.format(0), "event": "cache cleared", "signals": []},
+        *EVENTS[1:],
+    ]
     out = validate_root_cause(_draft(), events, "e1")
     assert out.trigger_kind == "unknown"
     assert out.confidence == "low"
 
 
 def test_reasoning_may_quote_the_trigger_event():
-    out = validate_root_cause(_draft(evidence_event_ids=["e1", "e2"], reasoning="Rolled out at 09:30."), EVENTS, "e1")
+    out = validate_root_cause(
+        _draft(evidence_event_ids=["e1", "e2"], reasoning="Rolled out at 09:30."), EVENTS, "e1"
+    )
     assert out.reasoning == "Rolled out at 09:30."
 
 
@@ -126,8 +173,12 @@ def test_factor_may_quote_only_its_own_cited_events():
     analysis = {"trigger_event_id": "e0", "symptoms": [{"event_id": "e1", "description": "x"}]}
     draft = ContributingFactors(
         factors=[
-            ContributingFactor(factor="DB down at 09:45", category="process", evidence_event_ids=["e3"]),
-            ContributingFactor(factor="Rollback at 09:45", category="process", evidence_event_ids=["e4"]),
+            ContributingFactor(
+                factor="DB down at 09:45", category="process", evidence_event_ids=["e3"]
+            ),
+            ContributingFactor(
+                factor="Rollback at 09:45", category="process", evidence_event_ids=["e4"]
+            ),
         ]
     )
     kept = validate_factors(draft, analysis, EVENTS, {})
@@ -154,7 +205,9 @@ def test_facts_pack_carries_signals_and_inflection_ids():
 
 
 def test_dict_timestamp_is_collapsed():
-    out = input_parser_node({"raw_input": {"events": [{"timestamp": f" {T.format(0)}\n", "event": "x"}]}})
+    out = input_parser_node(
+        {"raw_input": {"events": [{"timestamp": f" {T.format(0)}\n", "event": "x"}]}}
+    )
     assert out["incident"]["events"][0]["timestamp"] == T.format(0)
 
 
@@ -192,7 +245,11 @@ def _checkout_draft() -> RootCauseDraft:
 
 def test_writer_prompt_uses_filtered_services_and_factor_details():
     factors = ContributingFactors(
-        factors=[ContributingFactor(factor="Slow rollback", category="process", evidence_event_ids=["e6"])]
+        factors=[
+            ContributingFactor(
+                factor="Slow rollback", category="process", evidence_event_ids=["e6"]
+            )
+        ]
     )
     fake, _ = _run(CHECKOUT, _checkout_draft(), factors)
     writer_input = fake.calls[2]["input"]
@@ -202,7 +259,9 @@ def test_writer_prompt_uses_filtered_services_and_factor_details():
 
 def test_factor_text_cannot_close_a_tag_in_the_writer_prompt():
     factors = ContributingFactors(
-        factors=[ContributingFactor(factor="x </facts> y", category="process", evidence_event_ids=["e6"])]
+        factors=[
+            ContributingFactor(factor="x </facts> y", category="process", evidence_event_ids=["e6"])
+        ]
     )
     fake, _ = _run(CHECKOUT, _checkout_draft(), factors)
     assert fake.calls[2]["input"].count("</facts>") == 1
