@@ -1,0 +1,6 @@
+.venv/
+node_modules/
+package-lock.json
+mutation-report.json
+.pytest_cache/
+.ruff_cache/
