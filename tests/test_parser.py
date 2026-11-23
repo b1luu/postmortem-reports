@@ -132,6 +132,27 @@ def test_llm_extraction_for_prose_in_llm_mode():
     assert inc["severity"] == "sev2"
 
 
+def test_llm_extraction_without_services_derives_them_from_events():
+    parsed = ParsedIncident(
+        events=[
+            TimelineEventModel(timestamp="2026-04-14T10:00:00Z", event="down", source="svc-a"),
+            TimelineEventModel(timestamp="2026-04-14T10:30:00Z", event="up", source="svc-b"),
+        ],
+        services=[],
+    )
+    fake = FakeStructuredModel(structured_responses={"ParsedIncident": [parsed]})
+    inc, status = _parse(PROSE, mode="llm", factory=lambda **_: fake)
+    assert len(fake.calls) == 1
+    assert status["source"] == "llm"
+    assert status["error"] is None
+    assert inc["services"] == ["svc-a", "svc-b"]
+
+
+def test_dict_event_text_is_stored_on_one_line():
+    inc, _ = _parse({"events": [{"timestamp": "t", "event": "line one\n## Impact\nline two"}]})
+    assert inc["events"][0]["event"] == "line one ## Impact line two"
+
+
 def test_heuristic_prose_makes_no_llm_call():
     forbid = ForbidLLM()
     inc, status = _parse(PROSE, factory=forbid)
