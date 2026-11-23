@@ -18,9 +18,12 @@
         --soft: #efe9dd;
       }
 
-      * { box-sizing: border-box; }
+      * {
+        box-sizing: border-box;
+      }
 
-      html, body {
+      html,
+      body {
         margin: 0;
         min-height: 100%;
         background: var(--bg);
@@ -29,7 +32,9 @@
           Palatino, Georgia, serif;
       }
 
-      body { padding: 40px 18px 80px; }
+      body {
+        padding: 40px 18px 80px;
+      }
 
       .shell {
         width: min(1060px, 100%);
@@ -40,8 +45,12 @@
       }
 
       @media (max-width: 900px) {
-        .shell { grid-template-columns: minmax(0, 1fr); }
-        aside { order: 2; }
+        .shell {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        aside {
+          order: 2;
+        }
       }
 
       header h1 {
@@ -57,9 +66,15 @@
         font-size: 0.95rem;
       }
 
-      main { display: grid; gap: 20px; min-width: 0; }
+      main {
+        display: grid;
+        gap: 20px;
+        min-width: 0;
+      }
 
-      form, .report, aside .card {
+      form,
+      .report,
+      aside .card {
         background: var(--panel);
         border: 1px solid var(--line);
       }
@@ -78,7 +93,10 @@
         font-size: 0.88rem;
       }
 
-      select, button, textarea, input {
+      select,
+      button,
+      textarea,
+      input {
         font: inherit;
         color: inherit;
       }
@@ -126,11 +144,20 @@
         border-color: var(--line);
       }
 
-      button[disabled] { opacity: 0.45; cursor: wait; }
+      button[disabled] {
+        opacity: 0.45;
+        cursor: wait;
+      }
 
-      .meta { color: var(--muted); font-size: 0.88rem; }
+      .meta {
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
 
-      .report { padding: 22px 26px; min-width: 0; }
+      .report {
+        padding: 22px 26px;
+        min-width: 0;
+      }
 
       .statusline {
         display: flex;
@@ -150,9 +177,18 @@
         font-size: 0.78rem;
         color: var(--muted);
       }
-      .pill.ok { color: var(--ok); border-color: var(--ok); }
-      .pill.warn { color: var(--warn); border-color: var(--warn); }
-      .pill.err { color: var(--err); border-color: var(--err); }
+      .pill.ok {
+        color: var(--ok);
+        border-color: var(--ok);
+      }
+      .pill.warn {
+        color: var(--warn);
+        border-color: var(--warn);
+      }
+      .pill.err {
+        color: var(--err);
+        border-color: var(--err);
+      }
 
       .chips {
         display: flex;
@@ -182,10 +218,19 @@
         color: #938d82;
         font-variant-numeric: tabular-nums;
       }
-      .chip.llm .dot { background: var(--accent); }
-      .chip.fallback .dot { background: var(--warn); }
-      .chip.err .dot { background: var(--err); }
-      .chip b { color: var(--text); font-weight: 600; }
+      .chip.llm .dot {
+        background: var(--accent);
+      }
+      .chip.fallback .dot {
+        background: var(--warn);
+      }
+      .chip.err .dot {
+        background: var(--err);
+      }
+      .chip b {
+        color: var(--text);
+        font-weight: 600;
+      }
 
       .metrics {
         display: flex;
@@ -196,7 +241,10 @@
         background: #fff;
         border: 1px solid var(--line);
       }
-      .metrics div { font-size: 0.82rem; color: var(--muted); }
+      .metrics div {
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
       .metrics strong {
         display: block;
         font-size: 1.1rem;
@@ -204,8 +252,16 @@
         font-weight: 600;
       }
 
-      .md { line-height: 1.62; min-width: 0; overflow-wrap: anywhere; }
-      .md h1 { font-size: 1.8rem; margin: 0 0 12px; font-weight: 500; }
+      .md {
+        line-height: 1.62;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .md h1 {
+        font-size: 1.8rem;
+        margin: 0 0 12px;
+        font-weight: 500;
+      }
       .md h2 {
         font-size: 1.2rem;
         margin: 22px 0 8px;
@@ -213,8 +269,13 @@
         border-bottom: 1px solid var(--line);
         padding-bottom: 4px;
       }
-      .md ul { padding-left: 22px; margin: 6px 0 10px; }
-      .md li { margin: 3px 0; }
+      .md ul {
+        padding-left: 22px;
+        margin: 6px 0 10px;
+      }
+      .md li {
+        margin: 3px 0;
+      }
       .md code {
         font-family: ui-monospace, Menlo, Consolas, monospace;
         background: #efece4;
@@ -222,10 +283,17 @@
         border-radius: 2px;
         font-size: 0.86em;
       }
-      .md strong { font-weight: 600; }
-      .md em { color: var(--muted); }
+      .md strong {
+        font-weight: 600;
+      }
+      .md em {
+        color: var(--muted);
+      }
 
-      .empty { color: var(--muted); padding: 10px 0; }
+      .empty {
+        color: var(--muted);
+        padding: 10px 0;
+      }
 
       aside {
         display: grid;
@@ -235,7 +303,10 @@
         top: 26px;
         height: fit-content;
       }
-      aside .card { padding: 14px 16px; background: rgba(251, 250, 246, 0.8); }
+      aside .card {
+        padding: 14px 16px;
+        background: rgba(251, 250, 246, 0.8);
+      }
       aside h3 {
         margin: 0 0 10px;
         font-size: 0.82rem;
@@ -250,8 +321,12 @@
         cursor: pointer;
         font-size: 0.82rem;
       }
-      .run:first-of-type { border-top: 0; }
-      .run:hover { color: var(--accent); }
+      .run:first-of-type {
+        border-top: 0;
+      }
+      .run:hover {
+        color: var(--accent);
+      }
       .run .top {
         display: flex;
         justify-content: space-between;
@@ -269,7 +344,11 @@
         text-transform: uppercase;
         letter-spacing: 0.06em;
       }
-      .run .ts { color: var(--muted); font-size: 0.74rem; margin: 2px 0 4px; }
+      .run .ts {
+        color: var(--muted);
+        font-size: 0.74rem;
+        margin: 2px 0 4px;
+      }
       .run .snip {
         color: var(--muted);
         font-size: 0.76rem;
@@ -286,7 +365,9 @@
       <main>
         <header>
           <h1>Postmortem</h1>
-          <p class="subtle">Local-first incident analysis. Paste logs or pick a sample.</p>
+          <p class="subtle">
+            Local-first incident analysis. Paste logs or pick a sample.
+          </p>
         </header>
 
         <form id="analyze-form">
@@ -315,9 +396,13 @@
             <span id="report-status">No report yet.</span>
             <span id="review-pill" class="pill" hidden></span>
             <span id="report-id" class="meta"></span>
-            <span style="flex:1"></span>
-            <button id="copy-btn" class="ghost" type="button" hidden>Copy</button>
-            <button id="download-btn" class="ghost" type="button" hidden>Download .md</button>
+            <span style="flex: 1"></span>
+            <button id="copy-btn" class="ghost" type="button" hidden>
+              Copy
+            </button>
+            <button id="download-btn" class="ghost" type="button" hidden>
+              Download .md
+            </button>
           </div>
           <div class="chips" id="node-status"></div>
           <div class="metrics" id="metrics" hidden></div>
@@ -363,7 +448,10 @@
 
       // Minimal local markdown renderer — no external deps, stays local-first.
       function escapeHtml(s) {
-        return s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+        return s.replace(
+          /[&<>]/g,
+          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c],
+        );
       }
       function inline(s) {
         s = escapeHtml(s);
@@ -430,7 +518,10 @@
           const chip = document.createElement("div");
           const src = details.source || "?";
           chip.className = `chip ${src}${details.error ? " err" : ""}`;
-          const dur = details.duration_s != null ? `${details.duration_s.toFixed(2)}s` : "";
+          const dur =
+            details.duration_s != null
+              ? `${details.duration_s.toFixed(2)}s`
+              : "";
           chip.innerHTML = `<span class="dot"></span><b>${name}</b>${dur ? `<span class="dur">${dur}</span>` : ""}`;
           if (details.error) chip.title = details.error;
           else chip.title = `${name}: ${src}`;
@@ -466,7 +557,8 @@
 
         if (data.status === "ready") {
           currentMarkdown = data.report_markdown || "";
-          reportOutput.innerHTML = renderMarkdown(currentMarkdown) ||
+          reportOutput.innerHTML =
+            renderMarkdown(currentMarkdown) ||
             '<p class="empty">No report body.</p>';
           reviewPill.hidden = false;
           if (data.review_passed) {

@@ -15,21 +15,10 @@
     "mttd_human": "2m 9s",
     "mttr_human": "4m 50s",
     "total_human": "6m 59s",
-    "evidence_ids": [
-      "e1",
-      "e2",
-      "e3"
-    ],
+    "evidence_ids": ["e1", "e2", "e3"],
     "trigger_event_id": "e1",
     "trigger_kind": "first_signal",
-    "symptom_ids": [
-      "e2",
-      "e3"
-    ],
-    "affected_services": [
-      "auth-svc",
-      "web-frontend",
-      "mobile-api"
-    ]
+    "symptom_ids": ["e2", "e3"],
+    "affected_services": ["auth-svc", "web-frontend", "mobile-api"]
   }
 }
