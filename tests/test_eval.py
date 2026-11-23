@@ -13,6 +13,7 @@ import pytest
 
 from app.graph import graph
 from app.nodes.guard import REQUIRED_SECTIONS
+from app.signals import affected_services
 
 SAMPLES_DIR = Path(__file__).resolve().parent.parent / "samples"
 SAMPLES = sorted(SAMPLES_DIR.glob("*.json"))
@@ -75,6 +76,16 @@ def test_sample_end_to_end(sample_path: Path):
         assert [e["id"] for e in evidence] == exp["evidence_ids"]
     assert evidence[0]["id"] == final["inflection_event_ids"]["started"]
     assert final.get("root_cause_confidence") == "medium"
+
+    # Structured analysis
+    analysis = final["root_cause_analysis"]
+    assert analysis["trigger_event_id"] == exp["trigger_event_id"]
+    assert analysis["trigger_kind"] == exp["trigger_kind"]
+    assert [s["event_id"] for s in analysis["symptoms"]] == exp["symptom_ids"]
+    assert (
+        affected_services(incident["services"], final["ordered_timeline"])
+        == exp["affected_services"]
+    )
 
     # Writer output — all sections present
     report = final.get("report_markdown", "")
