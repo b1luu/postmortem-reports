@@ -65,9 +65,7 @@ def _compute_durations(points: dict[str, str | None]) -> dict:
     return result
 
 
-def timeline_node(
-    state: PostmortemState, config: RunnableConfig | None = None
-) -> PostmortemState:
+def timeline_node(state: PostmortemState, config: RunnableConfig | None = None) -> PostmortemState:
     start = time.perf_counter()
     events = [dict(ev) for ev in state.get("incident", {}).get("events", [])]
     events.sort(key=_sort_key)

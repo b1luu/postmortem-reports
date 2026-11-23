@@ -73,9 +73,7 @@ def root_cause_node(
             )
 
         after = (
-            {id(ev) for ev in events_after(trigger_ev, events)}
-            if trigger_ev is not None
-            else set()
+            {id(ev) for ev in events_after(trigger_ev, events)} if trigger_ev is not None else set()
         )
         symptom_events = [ev for ev in cause_events if id(ev) in after]
 

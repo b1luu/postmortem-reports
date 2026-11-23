@@ -105,9 +105,7 @@ def _fallback_report(state: PostmortemState) -> str:
         summary_parts.append(f"Time to resolve after detection (MTTR): **{mttr_h}**.")
     summary = " ".join(summary_parts)
 
-    factor_lines = (
-        "\n".join(f"- {f}" for f in factors) if factors else "- None identified"
-    )
+    factor_lines = "\n".join(f"- {f}" for f in factors) if factors else "- None identified"
 
     actions: list[str] = []
     if any(
@@ -201,9 +199,7 @@ A previous draft failed review. It was missing these sections: {missing}.
 Rewrite the full report and include every required section."""
 
 
-def writer_node(
-    state: PostmortemState, config: RunnableConfig | None = None
-) -> PostmortemState:
+def writer_node(state: PostmortemState, config: RunnableConfig | None = None) -> PostmortemState:
     start = time.perf_counter()
     heuristic = get_mode(config) is Mode.HEURISTIC
     attempt = state.get("write_attempts", 0) + 1
@@ -219,9 +215,7 @@ def writer_node(
     review_issues = state.get("review_issues") or []
 
     def _llm() -> PostmortemState:
-        llm = get_chat_model(
-            config, node="write", temperature=0.3, timeout=45, num_predict=1200
-        )
+        llm = get_chat_model(config, node="write", temperature=0.3, timeout=45, num_predict=1200)
         prompt = PROMPT
         if review_issues:
             prompt = ChatPromptTemplate.from_messages(
@@ -234,9 +228,7 @@ def writer_node(
             {
                 "missing": ", ".join(review_issues),
                 "severity": prompt_json(incident.get("severity", "unknown")),
-                "services": prompt_json(
-                    affected_services(incident.get("services", []), events)
-                ),
+                "services": prompt_json(affected_services(incident.get("services", []), events)),
                 "facts": prompt_json(facts_pack(state, with_timestamps=True)),
                 "analysis": prompt_json(state.get("root_cause_analysis") or {}),
                 "factors": prompt_json(

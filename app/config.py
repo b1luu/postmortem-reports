@@ -61,7 +61,5 @@ def get_chat_model(
 ) -> BaseChatModel:
     factory = _configurable(config).get("llm_factory")
     if factory is not None:
-        return factory(
-            node=node, temperature=temperature, timeout=timeout, num_predict=num_predict
-        )
+        return factory(node=node, temperature=temperature, timeout=timeout, num_predict=num_predict)
     return get_llm(temperature=temperature, timeout=timeout, num_predict=num_predict)

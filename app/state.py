@@ -18,9 +18,7 @@ class Incident(TypedDict, total=False):
     severity: str
 
 
-def _merge_dicts(
-    left: dict[str, Any] | None, right: dict[str, Any] | None
-) -> dict[str, Any]:
+def _merge_dicts(left: dict[str, Any] | None, right: dict[str, Any] | None) -> dict[str, Any]:
     return {**(left or {}), **(right or {})}
 
 

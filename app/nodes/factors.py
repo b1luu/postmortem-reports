@@ -69,9 +69,7 @@ def contributing_factors_node(
                 "resource",
             )
         error_idx = [i for i, (_, sigs) in enumerate(labelled) if Signal.ERROR in sigs]
-        if error_idx and any(
-            Signal.PRECURSOR in sigs for _, sigs in labelled[: error_idx[0]]
-        ):
+        if error_idx and any(Signal.PRECURSOR in sigs for _, sigs in labelled[: error_idx[0]]):
             _add(
                 "Early degradation signals (lag, latency, backlog) preceded hard "
                 "failures, so the issue was visible before the outage.",
@@ -108,8 +106,7 @@ def contributing_factors_node(
 
         if not details:
             _add(
-                "Limited incident detail made secondary contributing factors "
-                "hard to confirm.",
+                "Limited incident detail made secondary contributing factors " "hard to confirm.",
                 "other",
             )
         return {
