@@ -54,6 +54,8 @@ REPORT_KEYS = {
     "inflection_event_ids",
     "incident",
     "root_cause_evidence",
+    "root_cause_analysis",
+    "contributing_factor_details",
     "error",
 }
 
@@ -89,3 +91,27 @@ def test_report_reads_legacy_state_row():
         assert set(body) == REPORT_KEYS
         assert set(client.get(f"/report/{current}").json()) == REPORT_KEYS
         assert body["inflection_event_ids"] == {}
+
+
+def test_report_exposes_analysis_fields():
+    with TestClient(app) as client:
+        init_db()
+        legacy_id = uuid.uuid4().hex
+        create_pending_report(legacy_id, "x")
+        save_report(legacy_id, {"report_markdown": "old", "node_status": {}})
+        legacy = client.get(f"/report/{legacy_id}").json()
+        assert legacy["root_cause_analysis"] == {}
+        assert legacy["contributing_factor_details"] == []
+
+        sample = client.get("/api/samples").json()[0]
+        report_id = client.post("/analyze", json={"raw_input": sample["raw_input"]}).json()["id"]
+        deadline = time.time() + 10
+        report = {}
+        while time.time() < deadline:
+            report = client.get(f"/report/{report_id}").json()
+            if report["status"] == "ready":
+                break
+            time.sleep(0.05)
+        assert report["status"] == "ready", report
+        assert report["root_cause_analysis"]["trigger_kind"]
+        assert report["contributing_factor_details"]

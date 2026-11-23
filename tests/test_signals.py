@@ -1,6 +1,6 @@
 import pytest
 
-from app.signals import Signal, classify, latest_change_before
+from app.signals import Signal, affected_services, classify, latest_change_before
 
 C, P, E, D, R, M = (
     Signal.CHANGE,
@@ -84,3 +84,33 @@ def test_latest_change_before_needs_a_parseable_started_event():
     assert latest_change_before(_events("2026-04-14T10:01:00Z", "garbage"), "e1") is None
     assert latest_change_before(_events("2026-04-14T10:01:00Z"), "e9") is None
     assert latest_change_before(_events("2026-04-14T10:01:00Z"), None) is None
+
+
+MONITOR_ROWS = [
+    ("alert only", ["alert fired"], []),
+    ("alert and alert resolved", ["alert fired", "alert resolved"], []),
+    ("alert and incident resolved", ["alert fired", "incident resolved"], []),
+    ("alert resolved alone", ["alert resolved"], []),
+    ("incident resolved alone", ["incident resolved"], ["mon"]),
+    ("detection and error", ["alert fired", "ERROR pool exhausted"], ["mon"]),
+    ("alert and recovered", ["alert fired", "recovered"], ["mon"]),
+]
+
+
+@pytest.mark.parametrize("texts,expected", [r[1:] for r in MONITOR_ROWS], ids=[r[0] for r in MONITOR_ROWS])
+def test_affected_services_drops_monitoring_sources(texts, expected):
+    events = [{"source": "mon", "event": text} for text in texts]
+    assert affected_services(["mon"], events) == expected
+
+
+def test_affected_services_keeps_source_with_no_events():
+    assert affected_services(["quiet"], [{"source": "other", "event": "alert fired"}]) == ["quiet"]
+
+
+def test_affected_services_preserves_order():
+    events = [
+        {"source": "pagerduty", "event": "alert fired"},
+        {"source": "b", "event": "ERROR x"},
+        {"source": "a", "event": "ERROR y"},
+    ]
+    assert affected_services(["b", "pagerduty", "a"], events) == ["b", "a"]

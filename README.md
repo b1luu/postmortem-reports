@@ -140,6 +140,8 @@ Response fields:
 - `durations.warnings` — timing caveats, e.g. an alert logged before the first error
 - `incident` — parsed events, services, severity, error signals
 - `root_cause_evidence` — supporting events with timestamps and sources
+- `root_cause_analysis` — trigger, symptoms, evidence ids and confidence are validated against the timeline; `reasoning` is an unverified hypothesis in `llm` mode (`{}` on older reports)
+- `contributing_factor_details` — factors with category and evidence ids; factor text is an unverified hypothesis in `llm` mode (`[]` on older reports)
 - `error`
 
 ### `GET /api/samples`

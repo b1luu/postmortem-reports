@@ -46,6 +46,11 @@ def get_mode(config: RunnableConfig | None = None) -> Mode:
         raise ValueError(f"invalid mode {value!r}; expected one of: {allowed}") from None
 
 
+def llm_metadata(config: RunnableConfig | None, node: str) -> dict[str, str]:
+    """LangSmith run metadata for one LLM call."""
+    return {"mode": get_mode(config).value, "node": node}
+
+
 def get_chat_model(
     config: RunnableConfig | None,
     *,

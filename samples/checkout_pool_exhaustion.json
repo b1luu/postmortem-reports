@@ -19,6 +19,17 @@
       "e2",
       "e3",
       "e4"
+    ],
+    "trigger_event_id": "e1",
+    "trigger_kind": "suspected_change",
+    "symptom_ids": [
+      "e2",
+      "e3",
+      "e4"
+    ],
+    "affected_services": [
+      "checkout-svc",
+      "api-gateway"
     ]
   }
 }

@@ -74,6 +74,8 @@ LEVEL_PREFIX_RE = re.compile(
     r"^(?:TRACE|DEBUG|INFO|NOTICE|WARN(?:ING)?|ERROR|FATAL|CRITICAL)\s+"
 )
 
+_INCIDENT_RE = re.compile(r"\bincident\b", re.IGNORECASE)
+
 _NEGATABLE = (Signal.RESOLUTION, Signal.ERROR)
 
 
@@ -141,6 +143,32 @@ def latest_change_before(
         if best_ts is None or ts >= best_ts:  # ">=": later list position wins ties
             best, best_ts = ev, ts
     return best
+
+
+def is_alert_event(ev: Mapping) -> bool:
+    """An alert, or the alert lifecycle closing ("alert resolved", "incident resolved")."""
+    signals = event_signals(ev)
+    if Signal.DETECTION in signals:
+        return True
+    text = str(ev.get("event", ""))
+    return Signal.RESOLUTION in signals and bool(
+        PATTERNS[Signal.DETECTION].search(text) or _INCIDENT_RE.search(text)
+    )
+
+
+def affected_services(services: Iterable[str], events: Sequence[Mapping]) -> list[str]:
+    """Services without monitoring sources: those that only report on alerts."""
+    kept: list[str] = []
+    for service in services:
+        own = [ev for ev in events if ev.get("source") == service]
+        monitoring = (
+            bool(own)
+            and all(is_alert_event(ev) for ev in own)
+            and any(PATTERNS[Signal.DETECTION].search(str(ev.get("event", ""))) for ev in own)
+        )
+        if not monitoring:
+            kept.append(service)
+    return kept
 
 
 def error_tokens(text: str) -> list[str]:

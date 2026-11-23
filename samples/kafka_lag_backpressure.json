@@ -19,6 +19,16 @@
       "e1",
       "e2",
       "e3"
+    ],
+    "trigger_event_id": "e1",
+    "trigger_kind": "first_signal",
+    "symptom_ids": [
+      "e2",
+      "e3"
+    ],
+    "affected_services": [
+      "orders-consumer",
+      "fulfillment-svc"
     ]
   }
 }

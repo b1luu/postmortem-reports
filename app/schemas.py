@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -22,17 +24,38 @@ class ParsedIncident(BaseModel):
     )
 
 
-class RootCause(BaseModel):
-    root_cause: str = Field(description="The most likely root cause, one paragraph")
-    confidence: str = Field(description="One of: high, medium, low")
-    reasoning: str = Field(description="Why this is the most likely cause")
+class Symptom(BaseModel):
+    event_id: str = Field(description="Id of the event showing this symptom, e.g. e3")
+    description: str = Field(description="The observed effect, in a few words")
+
+
+class RootCauseDraft(BaseModel):
+    """What the LLM returns. Code validates it and derives trigger_kind."""
+
+    trigger: str = Field(description="One sentence naming what set the incident off")
+    trigger_event_id: str | None = Field(
+        default=None, description="Id of the triggering event, or null if none explains onset"
+    )
+    symptoms: list[Symptom] = Field(default_factory=list)
+    evidence_event_ids: list[str] = Field(default_factory=list)
+    confidence: Literal["high", "medium", "low"]
+    reasoning: str = Field(description="2-4 sentences explaining the causal chain")
+
+
+class RootCauseAnalysis(RootCauseDraft):
+    """The validated analysis stored in state as root_cause_analysis."""
+
+    trigger_kind: Literal["suspected_change", "first_signal", "unknown"]
+
+
+class ContributingFactor(BaseModel):
+    factor: str = Field(description="One secondary factor, one sentence")
+    category: Literal["change", "resource", "dependency", "detection", "process", "other"]
+    evidence_event_ids: list[str] = Field(default_factory=list)
 
 
 class ContributingFactors(BaseModel):
-    factors: list[str] = Field(
-        default_factory=list,
-        description="Secondary factors: config issues, cascading failures, missing alerts, etc.",
-    )
+    factors: list[ContributingFactor] = Field(default_factory=list)
 
 
 class InflectionPoints(BaseModel):

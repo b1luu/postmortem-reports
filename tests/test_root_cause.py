@@ -35,3 +35,30 @@ def test_checkout_evidence_excludes_detection():
     for item in evidence:
         assert set(item) >= {"id", "signals"}
         assert set(item["signals"]) & {"error", "precursor"}
+
+
+def test_same_second_change_is_trigger_and_earlier_error_is_not_a_symptom():
+    out = build_graph().invoke(
+        {
+            "raw_input": "2026-04-14T10:00:00Z [a] ERROR pool exhausted\n"
+            "2026-04-14T10:00:00Z [b] deploy v2 failed\n"
+            "2026-04-14T10:01:00Z [a] ERROR timeout"
+        }
+    )
+    analysis = out["root_cause_analysis"]
+    assert analysis["trigger_event_id"] == "e1"
+    assert [s["event_id"] for s in analysis["symptoms"]] == ["e2"]
+    assert out["root_cause_evidence"][0]["id"] == out["inflection_event_ids"]["started"]
+
+
+def test_same_second_change_with_no_later_error_has_no_symptoms():
+    out = build_graph().invoke(
+        {
+            "raw_input": "2026-04-14T10:00:00Z [a] ERROR pool exhausted\n"
+            "2026-04-14T10:00:00Z [b] deploy v2 rolled out"
+        }
+    )
+    analysis = out["root_cause_analysis"]
+    assert analysis["trigger_event_id"] == "e1"
+    assert analysis["symptoms"] == []
+    assert "First symptom" not in out["root_cause"]
