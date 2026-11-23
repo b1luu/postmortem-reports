@@ -9,7 +9,7 @@ from typing import Any
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
-from langchain_core.runnables import RunnableLambda
+from langchain_core.runnables import RunnableConfig, RunnableLambda
 from pydantic import Field
 
 
@@ -28,7 +28,15 @@ class FakeStructuredModel(BaseChatModel):
         return "fake-structured"
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:
-        self.calls.append({"kind": "text", "schema": None, "input": str(messages)})
+        metadata = run_manager.metadata if run_manager else {}
+        self.calls.append(
+            {
+                "kind": "text",
+                "schema": None,
+                "input": str(messages),
+                "metadata": {k: metadata.get(k) for k in ("mode", "node")},
+            }
+        )
         if not self.text_responses:
             raise AssertionError("FakeStructuredModel: no text responses left")
         item = self.text_responses.pop(0)
@@ -39,8 +47,17 @@ class FakeStructuredModel(BaseChatModel):
     def with_structured_output(self, schema, **kwargs):
         name = schema.__name__
 
-        def _respond(prompt_input):
-            self.calls.append({"kind": "structured", "schema": name, "input": str(prompt_input)})
+        # Must be named `config` and annotated for RunnableLambda to inject it.
+        def _respond(prompt_input, config: RunnableConfig):
+            metadata = config.get("metadata") or {}
+            self.calls.append(
+                {
+                    "kind": "structured",
+                    "schema": name,
+                    "input": str(prompt_input),
+                    "metadata": {k: metadata.get(k) for k in ("mode", "node")},
+                }
+            )
             queue = self.structured_responses.get(name) or []
             if not queue:
                 raise AssertionError(f"FakeStructuredModel: no {name} responses left")
